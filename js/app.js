@@ -498,15 +498,46 @@ function _cancelAllPendingLoads() {
     pendingLoadingFiles = [];
 }
 
+// Images jointes réduites avant l'envoi : une photo de téléphone (4000 px, plusieurs Mo) remplit vite
+// le contexte des IA. Plus grand côté ramené à IMAGE_MAX_SIDE, en JPEG ; texte d'une feuille encore lisible.
+const IMAGE_MAX_SIDE = 1024;
+const IMAGE_JPEG_QUALITY = 0.7;
+function shrinkImage(dataUrl) {
+    return new Promise((resolve) => {
+        const im = new Image();
+        im.onload = () => {
+            const scale = Math.min(1, IMAGE_MAX_SIDE / Math.max(im.naturalWidth, im.naturalHeight));
+            const w = Math.max(1, Math.round(im.naturalWidth * scale)), h = Math.max(1, Math.round(im.naturalHeight * scale));
+            const cv = document.createElement('canvas');
+            cv.width = w; cv.height = h;
+            const ctx = cv.getContext('2d');
+            ctx.fillStyle = '#fff';   // transparence (PNG) sur fond blanc, le JPEG n'en a pas
+            ctx.fillRect(0, 0, w, h);
+            ctx.drawImage(im, 0, 0, w, h);
+            const out = cv.toDataURL('image/jpeg', IMAGE_JPEG_QUALITY);
+            // Jamais plus lourd que l'original (petite image déjà compressée)
+            resolve(out.length < dataUrl.length ? { dataUrl: out, mimeType: 'image/jpeg' } : null);
+        };
+        im.onerror = () => resolve(null);   // format non décodable ici (HEIC…) : original gardé
+        im.src = dataUrl;
+    });
+}
+
 function processAttachedFile(file) {
     if (file.type.startsWith('image/') && file.type !== 'image/svg+xml') {
         const reader = new FileReader();
         const entry = _trackLoad(file.name, reader);
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             if (_isLoadCancelled(entry)) return;
+            let dataUrl = e.target.result, mimeType = file.type;
+            // GIF : animation perdue en JPEG, laissé tel quel
+            if (mimeType !== 'image/gif') {
+                const small = await shrinkImage(dataUrl);
+                if (_isLoadCancelled(entry)) return;
+                if (small) ({ dataUrl, mimeType } = small);
+            }
             _untrackLoad(entry);
-            const dataUrl = e.target.result;
-            const img = { dataUrl, mimeType: file.type, name: file.name };
+            const img = { dataUrl, mimeType, name: file.name };
             pendingImages.push(img);
             renderAttachPreview();
             updateSendButton();
