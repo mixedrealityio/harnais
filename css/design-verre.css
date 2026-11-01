@@ -1,0 +1,1957 @@
+/* Design « Verre » : classe design-verre posée sur <body> par le script de thème (index.html) */
+/* Complète style.css ; chaque règle commence par body.design-verre */
+
+.transparency-control {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.transparency-end {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* Repère à la valeur par défaut 30 (GLASS_TRANSPARENCY_DEFAULT, app.js) ; curseur de 18 px */
+body.design-verre .transparency-control .transparency-range {
+    --default-at: calc(9px + 0.3 * (100% - 18px));
+    flex: 1;
+    min-width: 0;
+    height: 6px;
+    margin: 0;
+    border-radius: 3px;
+    background:
+        linear-gradient(to right, transparent calc(var(--default-at) - 1px), color-mix(in srgb, var(--text) 35%, transparent) calc(var(--default-at) - 1px) calc(var(--default-at) + 1px), transparent calc(var(--default-at) + 1px)),
+        linear-gradient(to right, var(--accent) 0 var(--fill, 50%), var(--border-input) var(--fill, 50%) 100%);
+    cursor: pointer;
+}
+
+body.design-verre .transparency-range::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+    border: 3px solid var(--accent);
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s;
+}
+
+body.design-verre .transparency-range::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    box-sizing: border-box;
+    border: 3px solid var(--accent);
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+body.design-verre .transparency-range:hover::-webkit-slider-thumb,
+body.design-verre .transparency-range:active::-webkit-slider-thumb {
+    transform: scale(1.12);
+}
+
+body.design-verre .transparency-range:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+}
+
+/* --- Apparence en direct : dock en bas de la fenêtre --- */
+.appearance-dock {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    z-index: 9999;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--glass-radius);
+    background: var(--glass-bg-pop);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-shadow);
+    transform: translateX(-50%);
+    animation: appearance-dock-in 0.24s ease;
+}
+
+.appearance-dock[hidden] {
+    display: none;
+}
+
+@keyframes appearance-dock-in {
+    from { transform: translate(-50%, 12px); opacity: 0; }
+    to { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.appearance-dock-walls-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Six vignettes par page, un groupe par page (app.js : setAppearancePage) */
+.appearance-dock .wallpaper-grid {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 8px;
+    padding: 4px;
+}
+
+.appearance-dock .wallpaper-option {
+    flex: 0 0 auto;
+    width: 64px;
+}
+
+.appearance-dock .wallpaper-option:not(.is-page),
+.appearance-dock .wallpaper-group {
+    display: none;
+}
+
+.appearance-dock-arrow {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    margin-bottom: 18px;    /* au milieu des vignettes, pas de leur nom */
+    padding: 0;
+    border: 1px solid var(--border-input);
+    border-radius: 50%;
+    background: var(--bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s, opacity 0.15s;
+}
+
+.appearance-dock-arrow:hover:not(:disabled) {
+    color: var(--text);
+    background: var(--bg-hover);
+}
+
+.appearance-dock-arrow:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.appearance-dock-arrow:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.appearance-dock-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.appearance-dock-title {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text);
+    text-align: center;
+}
+
+.appearance-dock-group {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.appearance-dock .transparency-control {
+    flex: none;
+    width: min(400px, calc(100vw - 72px));
+}
+
+.appearance-dock-actions {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+}
+
+@media (max-width: 560px) {
+    .appearance-dock .wallpaper-grid {
+        flex-wrap: wrap;
+        max-width: 216px;
+    }
+    .appearance-dock .wallpaper-option {
+        width: 60px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .appearance-dock {
+        animation: none;
+    }
+}
+
+/* Fonds d'écran (minou-wallpaper → data-wallpaper sur <body>) ; mêmes valeurs pour les vignettes */
+body.design-verre[data-wallpaper="iris"],
+.wallpaper-swatch[data-wall="iris"] {
+    --glass-wall:
+        radial-gradient(55% 65% at 14% 20%, #cdd0fb 0%, transparent 62%),
+        radial-gradient(50% 60% at 86% 14%, #e4cff7 0%, transparent 62%),
+        radial-gradient(65% 70% at 68% 92%, #c6dcfb 0%, transparent 66%),
+        linear-gradient(140deg, #f3f3fd 0%, #eceefb 100%);
+}
+body.design-verre[data-wallpaper="lagune"],
+.wallpaper-swatch[data-wall="lagune"] {
+    --glass-wall:
+        radial-gradient(55% 65% at 12% 18%, #b6e3f2 0%, transparent 62%),
+        radial-gradient(50% 60% at 88% 12%, #c9d6ff 0%, transparent 62%),
+        radial-gradient(65% 70% at 72% 92%, #a6e8dc 0%, transparent 66%),
+        linear-gradient(140deg, #eef6fb 0%, #e2f0f5 100%);
+}
+body.design-verre[data-wallpaper="prairie"],
+.wallpaper-swatch[data-wall="prairie"] {
+    --glass-wall:
+        radial-gradient(55% 65% at 15% 20%, #d4efc4 0%, transparent 62%),
+        radial-gradient(50% 55% at 85% 18%, #f4eec2 0%, transparent 62%),
+        radial-gradient(65% 70% at 65% 92%, #c4e9d5 0%, transparent 66%),
+        linear-gradient(140deg, #f3f8ef 0%, #eaf3e6 100%);
+}
+body.design-verre[data-wallpaper="crepuscule"],
+.wallpaper-swatch[data-wall="crepuscule"] {
+    --glass-wall:
+        radial-gradient(55% 65% at 14% 22%, #f8c6b0 0%, transparent 62%),
+        radial-gradient(50% 60% at 86% 14%, #d8c2f3 0%, transparent 62%),
+        radial-gradient(65% 70% at 70% 92%, #f6b5cd 0%, transparent 66%),
+        linear-gradient(140deg, #fbf1f2 0%, #f4ecf6 100%);
+}
+body.design-verre[data-wallpaper="sable"],
+.wallpaper-swatch[data-wall="sable"] {
+    --glass-wall:
+        radial-gradient(55% 65% at 15% 20%, #f2e1c3 0%, transparent 62%),
+        radial-gradient(50% 55% at 86% 16%, #f7d7bd 0%, transparent 62%),
+        radial-gradient(65% 70% at 66% 92%, #ece3d0 0%, transparent 66%),
+        linear-gradient(140deg, #faf6ef 0%, #f4eee3 100%);
+}
+body.design-verre[data-wallpaper="graphite"],
+.wallpaper-swatch[data-wall="graphite"] {
+    --glass-wall:
+        radial-gradient(55% 65% at 15% 20%, #e3e6ec 0%, transparent 62%),
+        radial-gradient(50% 55% at 86% 16%, #dcdfe8 0%, transparent 62%),
+        radial-gradient(65% 70% at 66% 92%, #e8e9ee 0%, transparent 66%),
+        linear-gradient(140deg, #f3f4f6 0%, #eceef1 100%);
+}
+body.design-verre[data-wallpaper="noir"],
+.wallpaper-swatch[data-wall="noir"] { --glass-wall: #000; }
+/* Noms de fichiers sans accent (ZIP du Finder décompressé sous Windows) ; Corail : défaut, sans data-wallpaper */
+body.design-verre[data-wallpaper="aurore"],
+.wallpaper-swatch[data-wall="aurore"] { --glass-wall: url("../images/Fonds/1.jpg") center / cover no-repeat; }
+body.design-verre[data-wallpaper="corail"],
+.wallpaper-swatch[data-wall="corail"] { --glass-wall: url("../images/Fonds/2.jpg") center / cover no-repeat; }
+body.design-verre[data-wallpaper="menthe"],
+.wallpaper-swatch[data-wall="menthe"] { --glass-wall: url("../images/Fonds/3.jpg") center / cover no-repeat; }
+body.design-verre[data-wallpaper="lilas"],
+.wallpaper-swatch[data-wall="lilas"] { --glass-wall: url("../images/Fonds/4.jpg") center / cover no-repeat; }
+body.design-verre[data-wallpaper="azur"],
+.wallpaper-swatch[data-wall="azur"] { --glass-wall: url("../images/Fonds/5.jpg") center / cover no-repeat; }
+body.design-verre[data-wallpaper="sorbet"],
+.wallpaper-swatch[data-wall="sorbet"] { --glass-wall: url("../images/Fonds/6.jpg") center / cover no-repeat; }
+/* Halos et unis : --wall-light et --wall-dark par fond, --glass-wall choisi d'après le thème */
+body.design-verre {
+    /* Halo au niveau du logo de l'accueil (mesuré à 1440 × 900 et 1280 × 700) */
+    --wall-glow-x: calc(50% + (var(--sidebar-width) + var(--sidebar-extra)) / 2 - 22px);
+    --wall-glow-y: calc(50% - 135px);
+}
+
+body.design-verre:has(.sidebar.collapsed) {
+    --wall-glow-x: 50%;
+}
+
+@media (max-width: 900px) {
+    body.design-verre {
+        --wall-glow-x: 50%;
+    }
+}
+
+.wallpaper-swatch {
+    --wall-glow-x: 50%;
+    --wall-glow-y: 42%;
+}
+
+body.design-verre[data-wallpaper="saphir"],
+.wallpaper-swatch[data-wall="saphir"] {
+    --wall-light:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(77, 112, 230, 0.3) 0%, rgba(77, 112, 230, 0.1) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #f7f9ff 0%, #eef2fb 50%, #e4e9f5 100%);
+    --wall-dark:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(77, 112, 230, 0.42) 0%, rgba(77, 112, 230, 0.14) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #121b36 0%, #0b1123 50%, #060a14 100%);
+}
+
+body.design-verre[data-wallpaper="amethyste"],
+.wallpaper-swatch[data-wall="amethyste"] {
+    --wall-light:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(139, 92, 246, 0.3) 0%, rgba(139, 92, 246, 0.1) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #faf7ff 0%, #f2edfb 50%, #e9e2f6 100%);
+    --wall-dark:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(139, 92, 246, 0.42) 0%, rgba(139, 92, 246, 0.14) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #1b1336 0%, #110b23 50%, #090615 100%);
+}
+
+body.design-verre[data-wallpaper="rubis"],
+.wallpaper-swatch[data-wall="rubis"] {
+    --wall-light:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(232, 70, 124, 0.3) 0%, rgba(232, 70, 124, 0.1) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #fff7fa 0%, #fbedf2 50%, #f5e3ea 100%);
+    --wall-dark:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(232, 70, 124, 0.42) 0%, rgba(232, 70, 124, 0.14) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #2c1121 0%, #1b0a14 50%, #10060b 100%);
+}
+
+body.design-verre[data-wallpaper="ambre"],
+.wallpaper-swatch[data-wall="ambre"] {
+    --wall-light:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(240, 138, 36, 0.3) 0%, rgba(240, 138, 36, 0.1) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #fffaf3 0%, #fbf1e5 50%, #f4e7d6 100%);
+    --wall-dark:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(240, 138, 36, 0.42) 0%, rgba(240, 138, 36, 0.14) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #2b1b0d 0%, #1b1108 50%, #100a04 100%);
+}
+
+body.design-verre[data-wallpaper="emeraude"],
+.wallpaper-swatch[data-wall="emeraude"] {
+    --wall-light:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(34, 176, 125, 0.3) 0%, rgba(34, 176, 125, 0.1) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #f4fcf8 0%, #e9f6ef 50%, #dcefe5 100%);
+    --wall-dark:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(34, 176, 125, 0.42) 0%, rgba(34, 176, 125, 0.14) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #0d251d 0%, #081812 50%, #040f0b 100%);
+}
+
+body.design-verre[data-wallpaper="turquoise"],
+.wallpaper-swatch[data-wall="turquoise"] {
+    --wall-light:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(31, 182, 201, 0.3) 0%, rgba(31, 182, 201, 0.1) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #f3fcfd 0%, #e6f5f7 50%, #d9eef1 100%);
+    --wall-dark:
+        radial-gradient(36% 48% at var(--wall-glow-x) var(--wall-glow-y), rgba(31, 182, 201, 0.42) 0%, rgba(31, 182, 201, 0.14) 45%, transparent 75%),
+        radial-gradient(115% 115% at var(--wall-glow-x) var(--wall-glow-y), #0c2329 0%, #07171b 50%, #040e11 100%);
+}
+
+body.design-verre[data-wallpaper="uni"],
+.wallpaper-swatch[data-wall="uni"] {
+    --wall-light: linear-gradient(#f2f2f4, #f2f2f4);
+    --wall-dark: linear-gradient(#18181c, #18181c);
+}
+
+body.design-verre[data-wallpaper="brume"],
+.wallpaper-swatch[data-wall="brume"] {
+    --wall-light: linear-gradient(#eceff5, #eceff5);
+    --wall-dark: linear-gradient(#121722, #121722);
+}
+
+body.design-verre[data-wallpaper="sauge"],
+.wallpaper-swatch[data-wall="sauge"] {
+    --wall-light: linear-gradient(#ecf1ec, #ecf1ec);
+    --wall-dark: linear-gradient(#121a15, #121a15);
+}
+
+body.design-verre[data-wallpaper="lavande"],
+.wallpaper-swatch[data-wall="lavande"] {
+    --wall-light: linear-gradient(#efecf6, #efecf6);
+    --wall-dark: linear-gradient(#17131f, #17131f);
+}
+
+body.design-verre[data-wallpaper="poudre"],
+.wallpaper-swatch[data-wall="poudre"] {
+    --wall-light: linear-gradient(#f6edf0, #f6edf0);
+    --wall-dark: linear-gradient(#1e1418, #1e1418);
+}
+
+body.design-verre[data-wallpaper="lin"],
+.wallpaper-swatch[data-wall="lin"] {
+    --wall-light: linear-gradient(#f4f0e8, #f4f0e8);
+    --wall-dark: linear-gradient(#1c1913, #1c1913);
+}
+
+body.design-verre[data-wallpaper="saphir"],
+body.design-verre[data-wallpaper="amethyste"],
+body.design-verre[data-wallpaper="rubis"],
+body.design-verre[data-wallpaper="ambre"],
+body.design-verre[data-wallpaper="emeraude"],
+body.design-verre[data-wallpaper="turquoise"],
+body.design-verre[data-wallpaper="uni"],
+body.design-verre[data-wallpaper="brume"],
+body.design-verre[data-wallpaper="sauge"],
+body.design-verre[data-wallpaper="lavande"],
+body.design-verre[data-wallpaper="poudre"],
+body.design-verre[data-wallpaper="lin"],
+.wallpaper-swatch[data-wall="saphir"],
+.wallpaper-swatch[data-wall="amethyste"],
+.wallpaper-swatch[data-wall="rubis"],
+.wallpaper-swatch[data-wall="ambre"],
+.wallpaper-swatch[data-wall="emeraude"],
+.wallpaper-swatch[data-wall="turquoise"],
+.wallpaper-swatch[data-wall="uni"],
+.wallpaper-swatch[data-wall="brume"],
+.wallpaper-swatch[data-wall="sauge"],
+.wallpaper-swatch[data-wall="lavande"],
+.wallpaper-swatch[data-wall="poudre"],
+.wallpaper-swatch[data-wall="lin"] {
+    --glass-wall: var(--wall-light);
+}
+
+body.design-verre.dark[data-wallpaper="saphir"],
+body.design-verre.dark[data-wallpaper="amethyste"],
+body.design-verre.dark[data-wallpaper="rubis"],
+body.design-verre.dark[data-wallpaper="ambre"],
+body.design-verre.dark[data-wallpaper="emeraude"],
+body.design-verre.dark[data-wallpaper="turquoise"],
+body.design-verre.dark[data-wallpaper="uni"],
+body.design-verre.dark[data-wallpaper="brume"],
+body.design-verre.dark[data-wallpaper="sauge"],
+body.design-verre.dark[data-wallpaper="lavande"],
+body.design-verre.dark[data-wallpaper="poudre"],
+body.design-verre.dark[data-wallpaper="lin"] {
+    --glass-wall: var(--wall-dark);
+    --glass-veil: transparent;
+}
+
+body.dark .wallpaper-swatch[data-wall="saphir"],
+body.dark .wallpaper-swatch[data-wall="amethyste"],
+body.dark .wallpaper-swatch[data-wall="rubis"],
+body.dark .wallpaper-swatch[data-wall="ambre"],
+body.dark .wallpaper-swatch[data-wall="emeraude"],
+body.dark .wallpaper-swatch[data-wall="turquoise"],
+body.dark .wallpaper-swatch[data-wall="uni"],
+body.dark .wallpaper-swatch[data-wall="brume"],
+body.dark .wallpaper-swatch[data-wall="sauge"],
+body.dark .wallpaper-swatch[data-wall="lavande"],
+body.dark .wallpaper-swatch[data-wall="poudre"],
+body.dark .wallpaper-swatch[data-wall="lin"] {
+    --glass-wall: var(--wall-dark);
+    filter: none;
+}
+
+@media (prefers-color-scheme: dark) {
+    body.design-verre.theme-auto[data-wallpaper="saphir"],
+    body.design-verre.theme-auto[data-wallpaper="amethyste"],
+    body.design-verre.theme-auto[data-wallpaper="rubis"],
+    body.design-verre.theme-auto[data-wallpaper="ambre"],
+    body.design-verre.theme-auto[data-wallpaper="emeraude"],
+    body.design-verre.theme-auto[data-wallpaper="turquoise"],
+    body.design-verre.theme-auto[data-wallpaper="uni"],
+    body.design-verre.theme-auto[data-wallpaper="brume"],
+    body.design-verre.theme-auto[data-wallpaper="sauge"],
+    body.design-verre.theme-auto[data-wallpaper="lavande"],
+    body.design-verre.theme-auto[data-wallpaper="poudre"],
+    body.design-verre.theme-auto[data-wallpaper="lin"] {
+        --glass-wall: var(--wall-dark);
+        --glass-veil: transparent;
+    }
+
+    body.theme-auto .wallpaper-swatch[data-wall="saphir"],
+    body.theme-auto .wallpaper-swatch[data-wall="amethyste"],
+    body.theme-auto .wallpaper-swatch[data-wall="rubis"],
+    body.theme-auto .wallpaper-swatch[data-wall="ambre"],
+    body.theme-auto .wallpaper-swatch[data-wall="emeraude"],
+    body.theme-auto .wallpaper-swatch[data-wall="turquoise"],
+    body.theme-auto .wallpaper-swatch[data-wall="uni"],
+    body.theme-auto .wallpaper-swatch[data-wall="brume"],
+    body.theme-auto .wallpaper-swatch[data-wall="sauge"],
+    body.theme-auto .wallpaper-swatch[data-wall="lavande"],
+    body.theme-auto .wallpaper-swatch[data-wall="poudre"],
+    body.theme-auto .wallpaper-swatch[data-wall="lin"] {
+        --glass-wall: var(--wall-dark);
+        filter: none;
+    }
+}
+
+.wallpaper-group {
+    grid-column: 1 / -1;
+    margin: 2px 0 -4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.wallpaper-group:not(:first-child) {
+    margin-top: 6px;
+}
+
+.wallpaper-row {
+    align-items: flex-start;
+}
+
+.wallpaper-grid {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+    gap: 10px 8px;
+}
+
+.wallpaper-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    font: inherit;
+    font-size: 0.72rem;
+    cursor: pointer;
+}
+
+.wallpaper-swatch {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border-radius: 10px;
+    background: var(--glass-wall);
+    background-color: #f4f4f6;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+    transition: box-shadow 0.15s, transform 0.15s;
+}
+
+/* Vignettes adoucies en sombre ; le fond, lui, est voilé par --glass-veil */
+body.dark .wallpaper-swatch {
+    filter: brightness(0.82);
+}
+
+@media (prefers-color-scheme: dark) {
+    body.theme-auto .wallpaper-swatch {
+        filter: brightness(0.82);
+    }
+}
+
+.wallpaper-option:hover .wallpaper-swatch {
+    transform: translateY(-1px);
+}
+
+.wallpaper-option[aria-pressed="true"] {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.wallpaper-option[aria-pressed="true"] .wallpaper-swatch {
+    box-shadow: 0 0 0 2px var(--bg-input, #fff), 0 0 0 4px var(--accent);
+}
+
+.wallpaper-option:focus-visible {
+    outline: none;
+}
+
+.wallpaper-option:focus-visible .wallpaper-swatch {
+    box-shadow: 0 0 0 2px var(--bg-input, #fff), 0 0 0 4px var(--accent);
+}
+
+/* --glass-more / --glass-less (0 à 1, l'un vaut 0) : transparence réglée par app.js */
+body.design-verre {
+    --glass-more: 0;
+    --glass-less: 0;
+    --glass-gap: 12px;            /* écart entre les volets et les bords */
+    --glass-radius: 18px;
+    --glass-filter: blur(24px) saturate(160%);
+    --glass-bg: rgba(255, 255, 255, calc(0.4 + 0.6 * var(--glass-more) - 0.28 * var(--glass-less)));          /* volets */
+    --glass-bg-strong: rgba(255, 255, 255, calc(0.8 + 0.2 * var(--glass-more) - 0.45 * var(--glass-less)));   /* zone de saisie */
+    --glass-bg-pop: rgba(255, 255, 255, calc(0.9 + 0.1 * var(--glass-more) - 0.3 * var(--glass-less)));       /* panneau des réglages */
+    --glass-bg-menu: rgba(255, 255, 255, calc(0.84 + 0.16 * var(--glass-more) - 0.06 * var(--glass-less)));   /* menus et fenêtres : 22 % de transparence au plus */
+    --glass-border: rgba(255, 255, 255, 0.72);
+    --glass-shadow: 0 10px 34px -6px rgba(72, 52, 128, 0.16), 0 1px 2px rgba(72, 52, 128, 0.06);
+    --glass-veil: rgba(255, 255, 255, 0);           /* voile sur le fond d'écran */
+    --glass-scrim: rgba(60, 45, 110, 0.16);         /* derrière un volet plein écran */
+    --glass-wallpaper: url("../images/Fonds/2.jpg");    /* Corail, fond par défaut */
+    --topbar-h: 47px;             /* en-tête du canvas : les boutons des volets s'y alignent */
+    --sidebar-extra: 12px;        /* écart du volet de gauche au bord (sa place : largeur + écart) */
+    --chat-min: 400px;            /* largeur minimale de la discussion (app.js) */
+
+    /* Teintes translucides : valables sur le verre comme sur les fenêtres opaques */
+    --bg-hover: rgba(0, 0, 0, 0.045);
+    --bg-active: rgba(0, 0, 0, 0.075);
+    --border: rgba(0, 0, 0, 0.08);
+    --border-light: rgba(0, 0, 0, 0.05);
+    --bg-msg-user: rgba(255, 255, 255, calc(0.82 + 0.18 * var(--glass-more) - 0.42 * var(--glass-less)));
+    --bg-msg-assistant: rgba(255, 255, 255, calc(0.52 + 0.48 * var(--glass-more) - 0.34 * var(--glass-less)));
+
+    background:
+        linear-gradient(var(--glass-veil), var(--glass-veil)),
+        var(--glass-wall, var(--glass-wallpaper) center / cover no-repeat);
+    background-color: var(--bg);
+}
+
+/* --- Thème sombre : même fond d'écran, assombri par le voile --- */
+body.design-verre.dark {
+    --glass-bg: rgba(30, 29, 36, calc(0.58 + 0.42 * var(--glass-more) - 0.38 * var(--glass-less)));
+    --glass-bg-strong: rgba(38, 37, 46, calc(0.8 + 0.2 * var(--glass-more) - 0.45 * var(--glass-less)));
+    --glass-bg-pop: rgba(36, 35, 44, calc(0.92 + 0.08 * var(--glass-more) - 0.3 * var(--glass-less)));
+    --glass-bg-menu: rgba(36, 35, 44, calc(0.86 + 0.14 * var(--glass-more) - 0.06 * var(--glass-less)));
+    --glass-border: rgba(255, 255, 255, 0.09);
+    --glass-shadow: 0 10px 34px -6px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.25);
+    --glass-veil: rgba(14, 13, 28, 0.74);
+    --glass-scrim: rgba(0, 0, 0, 0.4);
+    --bg-hover: rgba(255, 255, 255, 0.06);
+    --bg-active: rgba(255, 255, 255, 0.1);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-light: rgba(255, 255, 255, 0.055);
+    --bg-msg-user: rgba(255, 255, 255, 0.12);
+    --bg-msg-assistant: rgba(255, 255, 255, 0.065);
+}
+
+@media (prefers-color-scheme: dark) {
+    body.design-verre.theme-auto {
+        --glass-bg: rgba(30, 29, 36, calc(0.58 + 0.42 * var(--glass-more) - 0.38 * var(--glass-less)));
+        --glass-bg-strong: rgba(38, 37, 46, calc(0.8 + 0.2 * var(--glass-more) - 0.45 * var(--glass-less)));
+        --glass-bg-pop: rgba(36, 35, 44, calc(0.92 + 0.08 * var(--glass-more) - 0.3 * var(--glass-less)));
+    --glass-bg-menu: rgba(36, 35, 44, calc(0.86 + 0.14 * var(--glass-more) - 0.06 * var(--glass-less)));
+        --glass-border: rgba(255, 255, 255, 0.09);
+        --glass-shadow: 0 10px 34px -6px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.25);
+        --glass-veil: rgba(14, 13, 28, 0.74);
+        --glass-scrim: rgba(0, 0, 0, 0.4);
+        --bg-hover: rgba(255, 255, 255, 0.06);
+        --bg-active: rgba(255, 255, 255, 0.1);
+        --border: rgba(255, 255, 255, 0.08);
+        --border-light: rgba(255, 255, 255, 0.055);
+        --bg-msg-user: rgba(255, 255, 255, 0.12);
+        --bg-msg-assistant: rgba(255, 255, 255, 0.065);
+    }
+}
+
+body.design-verre .davidtwentyai-splash {
+    background: inherit;
+}
+
+/* --- Volets flottants : barre latérale et canvas --- */
+body.design-verre .sidebar,
+body.design-verre .canvas-panel {
+    margin: var(--glass-gap);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--glass-radius);
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-shadow);
+}
+
+body.design-verre .sidebar {
+    margin-right: 0;
+    transition: margin 0.25s ease, border-radius 0.25s ease, background-color 0.25s ease,
+                box-shadow 0.25s ease;
+}
+
+/* Au-dessus des fondus (.main::before, .token-bar::before, z-index 17-18) qui couperaient l'ombre */
+body.design-verre .sidebar:not(.collapsed),
+body.design-verre .canvas-peek-tab {
+    position: relative;
+    z-index: 20;
+}
+
+@media (min-width: 901px) {
+    body.design-verre .canvas-panel {
+        z-index: 20;
+    }
+}
+
+/* Replié : une bande reste visible ; même fond que ressorti (pas de changement en ressortant) */
+body.design-verre .sidebar.collapsed {
+    margin-left: calc(var(--sidebar-peek) - var(--sidebar-width));
+    border-radius: 0 var(--glass-radius) var(--glass-radius) 0;
+    background: var(--glass-bg-strong);
+}
+
+body.design-verre .sidebar.collapsed.peek {
+    margin-left: 0;
+    box-shadow: var(--glass-shadow), 0 16px 48px -10px rgba(0, 0, 0, 0.2);
+}
+
+/* Le canvas rétrécit plutôt que de déborder quand sa largeur enregistrée ne tient plus */
+body.design-verre .canvas-panel {
+    margin-left: 0;
+    height: auto;
+    flex-shrink: 1;
+}
+
+body.design-verre.canvas-fullscreen .canvas-panel {
+    margin: var(--glass-gap);
+}
+
+/* Volet transparent : le fondu du bas devient un masque */
+body.design-verre .sidebar-bottom::before {
+    display: none;
+}
+
+body.design-verre .conv-list-container {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 32px), transparent);
+}
+
+/* --- Boutons des volets, dans les volets (barre du haut en 900 px et moins) --- */
+body.design-verre .panel-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+}
+
+body.design-verre .panel-toggle-btn:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+}
+
+body.design-verre .panel-toggle-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+/* Même haut que la barre du haut (bordure de 1 px) */
+body.design-verre .sidebar-panel-btn {
+    position: absolute;
+    top: calc((var(--topbar-h) - 32px) / 2 - 1px);
+    right: 5px;
+    z-index: 1;
+}
+
+/* 6 px du bord du volet (1 de bordure, 12 de marge) sans agrandir l'en-tête de 46 px */
+body.design-verre .canvas-panel-btn {
+    width: auto;
+    gap: 2px;
+    margin: -2px 0 -2px -7px;
+    padding: 0 7px;
+}
+
+body.design-verre .canvas-panel-btn > .panel-hide-arrow {
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: transform 0.18s ease, opacity 0.15s;
+}
+
+body.design-verre .canvas-panel-btn:hover > .panel-hide-arrow {
+    opacity: 1;
+    transform: translateX(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.design-verre .canvas-panel-btn:hover > .panel-hide-arrow {
+        transform: none;
+    }
+}
+
+body.design-verre .canvas-rail-btn {
+    position: relative;
+    margin: calc((var(--topbar-h) - 32px) / 2 - 1px) 0 0 5px;
+}
+
+/* Icône de l'espace (Artifacts ou Canvas) à la place de celle du volet, sauf s'il est vide */
+body.design-verre .canvas-panel-btn > .canvas-space-icon,
+body.design-verre .canvas-rail-btn > .canvas-space-icon {
+    display: none;
+}
+
+body.design-verre #canvas-panel[data-mode="artifacts"] .canvas-panel-btn > .canvas-space-icon-artifacts,
+body.design-verre #canvas-panel[data-mode="canvas"] .canvas-panel-btn > .canvas-space-icon-doc,
+body.design-verre .canvas-rail-btn[data-space="artifacts"] > .canvas-space-icon-artifacts,
+body.design-verre .canvas-rail-btn[data-space="canvas"] > .canvas-space-icon-doc {
+    display: block;
+}
+
+body.design-verre #canvas-panel:not([data-mode=""]) .canvas-panel-btn > .panel-toggle-icon,
+body.design-verre .canvas-rail-btn:not([data-space=""]) > .panel-toggle-icon {
+    display: none;
+}
+
+@media (min-width: 901px) {
+    body.design-verre {
+        --sidebar-peek: 44px;
+    }
+
+    body.design-verre #topbar-sidebar-btn,
+    body.design-verre #topbar-canvas-btn {
+        display: none;
+    }
+
+    body.design-verre .sidebar.collapsed > .sidebar-panel-btn {
+        opacity: 1;
+        visibility: visible;
+        transition: none;
+    }
+
+    /* Plein écran du plan de travail : masqué avec le volet, sinon son verre reste dessiné par-dessus */
+    body.design-verre.canvas-fullscreen .sidebar.collapsed > .sidebar-panel-btn {
+        visibility: hidden;
+    }
+
+    body.design-verre #canvas-panel .canvas-header-title > .canvas-space-icon {
+        display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    /* Ressorti par-dessus la discussion, son bouton le garde ouvert à côté */
+    body.design-verre .sidebar:not(.peek) > .sidebar-panel-btn,
+    body.design-verre .canvas-panel-btn {
+        display: none;
+    }
+}
+
+/* --- Boutons du haut : flottants aux coins de la discussion en 900 px et moins --- */
+body.design-verre .chat-topbar {
+    display: none;
+}
+
+body.design-verre .chat-topbar-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--glass-border);
+    border-radius: 10px;
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-shadow);
+    color: var(--text-secondary);
+    cursor: pointer;
+    pointer-events: auto;
+    transition: color 0.15s, background 0.15s;
+}
+
+body.design-verre .chat-topbar-btn:hover,
+body.design-verre .chat-topbar-btn.active {
+    color: var(--text);
+    background: linear-gradient(var(--bg-hover), var(--bg-hover)), var(--glass-bg-strong);
+}
+
+body.design-verre .chat-topbar-btn:focus-visible,
+body.design-verre .input-band-settings:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+body.design-verre .input-band-settings:focus-visible {
+    outline-offset: 0;
+}
+
+@media (max-width: 900px) {
+    body.design-verre .chat-topbar {
+        position: absolute;
+        top: var(--glass-gap);
+        left: var(--glass-gap);
+        right: var(--glass-gap);
+        z-index: 17;
+        display: flex;
+        justify-content: space-between;
+        pointer-events: none;
+    }
+
+    body.design-verre .chat-container {
+        padding-top: calc(var(--glass-gap) + 32px + 12px);
+    }
+}
+
+/* --- Zone de discussion, posée directement sur le fond d'écran --- */
+
+/* Marge et fondu réduits : le dernier message au plus près de Télécharger, Résumé et Coût */
+body.design-verre .chat-container {
+    padding-bottom: 20px;
+}
+
+body.design-verre .token-bar::before {
+    top: -20px;
+    height: 20px;
+}
+
+/* style.css réserve 56px à droite pour des boutons flottants */
+body.design-verre:has(#right-panel.collapsed):not(.canvas-active) .chat-container {
+    padding-right: 32px;
+}
+
+body.design-verre .token-bar,
+body.design-verre .input-area:not(.drag-over) {
+    background: transparent;
+}
+
+body.design-verre .message-user,
+body.design-verre .message-assistant {
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    backdrop-filter: blur(10px) saturate(140%);
+}
+
+/* Fondus : une bande du fond d'écran, alignée sur la fenêtre */
+body.design-verre .main::before,
+body.design-verre .token-bar::before {
+    background:
+        linear-gradient(var(--glass-veil), var(--glass-veil)),
+        var(--glass-wall, var(--glass-wallpaper) center / cover no-repeat);
+    background-color: var(--bg);
+    background-attachment: fixed;
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000);
+    mask-image: linear-gradient(to bottom, transparent, #000);
+}
+
+body.design-verre .main::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--glass-gap) + 12px);
+    z-index: 16;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(to top, transparent, #000);
+    mask-image: linear-gradient(to top, transparent, #000);
+}
+
+/* --- Zone de saisie : bandeau du modèle et des réglages, puis le texte --- */
+body.design-verre .input-wrapper {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 34px auto;
+    grid-template-areas:
+        "modele reglages"
+        "saisie saisie";
+    column-gap: 12px;
+    row-gap: 6px;
+    padding: 0 12px 8px;
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    container-type: inline-size;
+}
+
+body.design-verre .input-wrapper::before {
+    content: '';
+    grid-row: 1;
+    grid-column: 1 / -1;
+    margin: 0 -12px;
+    border-bottom: 1px solid var(--border);
+    border-radius: 22px 22px 0 0;
+    background: color-mix(in srgb, var(--text) 4%, transparent);
+    transition: background 0.2s;
+}
+
+body.design-verre .input-wrapper:focus-within::before {
+    background: color-mix(in srgb, var(--active-cat-color, var(--accent)) 8%, transparent);
+}
+
+body.design-verre .input-content {
+    grid-area: saisie;
+}
+
+body.design-verre .input-wrapper > .custom-select {
+    grid-area: modele;
+    justify-self: start;
+    align-self: center;
+    max-width: 100%;
+    min-height: 0;
+    margin: 0 0 0 -8px;
+    border-right: 0;
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-trigger,
+body.design-verre .input-band-settings {
+    height: 26px;
+    padding: 0 8px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: color 0.15s, background 0.15s;
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-trigger:hover,
+body.design-verre .input-wrapper > .custom-select.open .custom-select-trigger,
+body.design-verre .input-band-settings:hover,
+body.design-verre .input-band-settings.active {
+    color: var(--text);
+    background: var(--bg-hover);
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-text {
+    max-width: none;
+}
+
+/* Fond opaque : dans la saisie déjà en verre, le flou ne s'applique pas et la page se lirait au travers */
+body.design-verre .input-wrapper > .custom-select .custom-select-dropdown {
+    width: 320px;
+    min-width: 320px;
+    height: 400px;
+    max-height: calc(100dvh - 200px);
+    padding: 6px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--glass-radius);
+    background: linear-gradient(var(--glass-bg-pop), var(--glass-bg-pop)), var(--bg);
+    box-shadow: var(--glass-shadow);
+}
+
+body.design-verre .custom-select-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    height: 34px;
+    margin: 0 0 6px;
+    padding: 0 10px;
+    border: 1px solid var(--border-input);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text-secondary);
+    cursor: text;
+    transition: border-color 0.15s;
+}
+
+body.design-verre .custom-select-search:focus-within {
+    border-color: var(--accent);
+}
+
+body.design-verre .custom-select-search svg {
+    flex-shrink: 0;
+}
+
+body.design-verre .custom-select-search-input {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: none;
+    font: inherit;
+    font-size: 0.84rem;
+    color: var(--text);
+}
+
+body.design-verre .custom-select-search-input::placeholder {
+    color: var(--text-secondary);
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-tabs {
+    position: static;
+    margin: 0 0 4px;
+    padding: 3px;
+    border: 0;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-tab {
+    padding: 6px 4px;
+    border: 0;
+    border-radius: 8px;
+    font-size: 0.76rem;
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-tab:hover {
+    background: none;
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-tab.active {
+    background: var(--bg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-group {
+    justify-content: flex-start;
+    padding: 8px 10px 6px;
+    background: linear-gradient(var(--glass-bg-pop), var(--glass-bg-pop)), var(--bg);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-group::before,
+body.design-verre .input-wrapper > .custom-select .custom-select-group::after {
+    display: none;
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-group-label,
+body.design-verre.dark .input-wrapper > .custom-select .custom-select-group-label {
+    color: var(--text-secondary);
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-option {
+    margin: 1px 0;
+    padding: 6px 10px;
+    border-radius: 10px;
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-option:hover {
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-option-name {
+    font-size: 0.84rem;
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-option-price {
+    font-size: 0.7rem;
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-option.active {
+    background: color-mix(in srgb, var(--active-cat-color, var(--accent)) 13%, transparent);
+    color: var(--text);
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-option.active .custom-select-option-name {
+    color: var(--text);
+    font-weight: 600;
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-option.active .custom-select-option-price {
+    color: var(--text-secondary);
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-option.active .custom-select-info {
+    color: var(--text-secondary);
+    border-color: var(--text-secondary);
+}
+
+body.design-verre .input-wrapper > .custom-select .custom-select-option.active::after {
+    content: '';
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    margin-left: 8px;
+    background: var(--active-cat-color, var(--accent));
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* La saisie étroite ne resserre pas le modèle (app.js : fitInputLine2) */
+body.design-verre .input-wrapper.is-tighter > .custom-select .custom-select-text {
+    display: block;
+}
+
+body.design-verre .input-band-settings {
+    grid-area: reglages;
+    align-self: center;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: -8px;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+body.design-verre .input-band-settings.is-custom .input-band-long {
+    display: none;
+}
+
+body.design-verre .input-band-changes {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    max-width: min(260px, 40cqw);
+    height: 20px;
+    padding: 0 8px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--active-cat-color, var(--accent)) 14%, transparent);
+    color: var(--text);
+    font-size: 0.72rem;
+}
+
+body.design-verre .input-band-changes[hidden] {
+    display: none;
+}
+
+body.design-verre .input-band-changes-list {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.design-verre .input-band-changes-count {
+    display: none;
+}
+
+@container (max-width: 420px) {
+    body.design-verre .input-band-long {
+        display: none;
+    }
+    body.design-verre .input-band-changes-list {
+        display: none;
+    }
+    body.design-verre .input-band-changes-count {
+        display: inline;
+    }
+}
+
+@container (max-width: 300px) {
+    body.design-verre .input-band-settings > span:not(.input-band-changes) {
+        display: none;
+    }
+}
+
+body.design-verre .input-suggest-chip {
+    background: var(--glass-bg-strong);
+    border-color: var(--glass-border);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-shadow);
+}
+
+/* --- Réglages de la conversation (volet déplacé par app.js dans .input-row) --- */
+
+/* Au-dessus de l'alerte de modèle, qui chevauche le bas de la discussion */
+body.design-verre .input-area:has(.right-panel:not(.collapsed), .custom-select.open) {
+    z-index: 26;
+}
+
+/* Dans .input-row : le flou de .input-wrapper empêcherait le sien */
+body.design-verre .context-popover {
+    z-index: 5;
+    padding: 14px 18px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--glass-radius);
+    background: var(--glass-bg-pop);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-shadow);
+    animation: verre-reglages-in 0.16s ease;
+}
+
+body.design-verre .file-mention-list {
+    --mention-radius: var(--glass-radius);
+    z-index: 5;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg-pop);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-shadow);
+    animation: verre-reglages-in 0.16s ease;
+}
+
+body.design-verre .context-popover.is-scrollable:not(.is-at-end)::after {
+    margin: -32px -18px 0;
+    background: linear-gradient(to bottom, transparent, var(--glass-bg-pop));
+}
+
+/* --input-suggest-stack : hauteur des bandeaux de la saisie (app.js, syncInputSuggestStack) */
+body.design-verre .right-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    position: absolute;
+    left: auto;
+    right: 0;
+    bottom: calc(100% + 8px + var(--input-suggest-stack, 0px));
+    z-index: 5;
+    width: 360px;
+    max-width: 100%;
+    min-width: 0;
+    max-height: min(440px, calc(56vh - var(--input-suggest-stack, 0px)));
+    margin: 0;
+    padding: 14px 14px 0;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--glass-radius);
+    background: var(--glass-bg-pop);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-shadow);
+    opacity: 1;
+    transition: none;
+    container-type: inline-size;
+    animation: verre-reglages-in 0.16s ease;
+}
+
+body.design-verre .right-panel.collapsed {
+    display: none;
+}
+
+/* style.css masque le volet quand le canvas est ouvert */
+body.design-verre.canvas-active .right-panel:not(.collapsed) {
+    display: grid !important;
+}
+
+@keyframes verre-reglages-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+body.design-verre .rp-tabs {
+    flex-shrink: 0;
+    gap: 0;
+    margin-bottom: 0;
+    padding: 3px;
+    border: 0;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+
+body.design-verre .rp-tabs::after {
+    display: none;
+}
+
+body.design-verre .rp-tab {
+    padding: 6px 4px;
+    border-radius: 8px;
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+body.design-verre .rp-tab:hover:not(:disabled) {
+    color: var(--text);
+}
+
+body.design-verre .rp-tab.active {
+    font-weight: 600;
+    color: var(--text);
+    background: var(--bg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Onglets dans la même case : le panneau garde la hauteur du plus haut d'un onglet à l'autre */
+body.design-verre .rp-tabs {
+    grid-row: 1;
+}
+
+body.design-verre .rp-tab-content {
+    display: flex;
+    grid-row: 2;
+    grid-column: 1;
+    min-height: 0;
+    padding: 10px 0;
+    visibility: hidden;
+}
+
+body.design-verre .rp-tab-content.active {
+    visibility: visible;
+}
+
+/* Une seule colonne : deux colonnes laissaient croire qu'à chaque onglet sa colonne */
+
+/* Cartes marquées par app.js (markSettingsCards), sans les réglages masqués pour le modèle */
+body.design-verre .rp-tab-content .right-panel-section {
+    margin: 0;
+    padding: 9px 12px;
+    border: 0;
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+body.design-verre .rp-tab-content .right-panel-section.is-card-first {
+    border-top: 0;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+body.design-verre .rp-tab-content .right-panel-section.is-card-last {
+    border-bottom-left-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+body.design-verre .rp-tab-content .right-panel-section.is-card-gap {
+    margin-top: 10px;
+}
+
+body.design-verre .rp-tab-content > .rp-role-btn {
+    margin-top: 10px;
+}
+
+body.design-verre .right-panel-header,
+body.design-verre .right-panel-select-row {
+    margin-bottom: 8px;
+}
+
+/* Titre et aide sortis de leur groupe (display: contents) ; ::before pousse le reste à droite */
+body.design-verre .rp-title-group {
+    display: contents;
+}
+
+body.design-verre .right-panel-header {
+    justify-content: flex-start;
+    gap: 6px;
+    min-height: 20px;
+}
+
+body.design-verre .right-panel-header::before {
+    content: '';
+    order: 3;
+    flex: 1;
+}
+
+body.design-verre .right-panel-title {
+    order: 1;
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text);
+}
+
+body.design-verre .right-panel-header .rp-hint-btn {
+    order: 2;
+}
+
+body.design-verre .right-panel-header .rp-range-value {
+    order: 4;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+body.design-verre .right-panel-header .rp-param-toggle {
+    order: 5;
+    margin-left: 6px;
+}
+
+body.design-verre .rp-param-toggle {
+    width: 34px;
+    height: 20px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--border-input);
+    transition: background 0.2s;
+}
+
+body.design-verre .rp-param-toggle::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border: 0;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transform: none;
+    transition: transform 0.2s;
+}
+
+body.design-verre .rp-param-toggle:checked {
+    background: var(--accent);
+}
+
+body.design-verre .rp-param-toggle:checked::after {
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border: 0;
+    transform: translateX(14px);
+}
+
+body.design-verre .rp-param-toggle:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.design-verre .rp-param-toggle,
+    body.design-verre .rp-param-toggle::after {
+        transition: none;
+    }
+}
+
+/* Hors de la ligne de texte, dont les jambages ajouteraient 3 px dessous */
+body.design-verre .right-panel select,
+body.design-verre .sp-textarea,
+body.design-verre .rp-text-input {
+    display: block;
+}
+
+body.design-verre .sp-textarea {
+    min-height: 82px;
+}
+
+/* Le curseur (14 px) dépasse du rail de 5 px en haut et en bas */
+body.design-verre .rp-range {
+    display: block;
+    margin: 13px 0 5px;
+}
+
+body.design-verre .right-panel-section.rp-param-disabled .right-panel-header {
+    margin-bottom: 0;
+}
+
+body.design-verre .right-panel-section.rp-param-disabled .rp-range,
+body.design-verre .right-panel-section.rp-param-disabled .rp-range-value,
+body.design-verre .right-panel-section.rp-param-disabled select,
+body.design-verre .right-panel-section.rp-param-disabled .rp-text-input,
+body.design-verre .right-panel-section.rp-param-disabled .right-panel-select-row,
+body.design-verre .right-panel-section.rp-param-disabled .sp-textarea,
+body.design-verre .right-panel-section.rp-param-disabled .right-panel-role-actions,
+body.design-verre .right-panel-section.rp-param-disabled .rp-instructions-note {
+    display: none !important;
+}
+
+/* Hauteur gardée (app.js) : sinon le réglage qu'on vient de cocher partirait sous la souris */
+body.design-verre .right-panel.is-height-locked {
+    height: var(--rp-locked-height);
+}
+
+/* --- Canvas : les zones intérieures laissent voir le verre --- */
+body.design-verre .canvas-header,
+body.design-verre .canvas-history-bar,
+body.design-verre .canvas-sidebar,
+body.design-verre .canvas-footer,
+body.design-verre .canvas-viewer-title,
+body.design-verre .canvas-viewer-content,
+body.design-verre .canvas-console,
+body.design-verre .canvas-console-bar {
+    background: transparent;
+}
+
+/* style.css réserve 30 px à gauche à des boutons flottants : ici, marges symétriques */
+body.design-verre .canvas-header,
+body.design-verre .canvas-history-bar,
+body.design-verre .canvas-sidebar-label {
+    padding-left: 12px;
+}
+
+body.design-verre .canvas-doc-scroll {
+    background: transparent;
+}
+
+body.design-verre .canvas-doc-tab.is-active:not(.is-dragging) {
+    background: transparent;
+}
+
+/* Verre opaque : lisible posé sur le texte qui défile */
+body.design-verre .canvas-doc-copy {
+    background: linear-gradient(var(--glass-bg-pop), var(--glass-bg-pop)), var(--bg);
+    border-color: var(--glass-border);
+}
+
+@media (min-width: 901px) {
+    body.design-verre .canvas-doc-bar {
+        --doc-bar-pad: 14px;
+    }
+    body.design-verre #canvas-empty {
+        padding-left: 24px;
+        padding-right: 24px;
+    }
+    @container canvas-panel (max-width: 560px) {
+        body.design-verre .canvas-doc-page {
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+    }
+}
+
+body.design-verre .canvas-start-card {
+    background: var(--bg-hover);
+}
+
+body.design-verre .canvas-start-btn {
+    background: var(--glass-bg-strong);
+}
+
+/* Volet étroit : liste des fichiers en menu, opaque comme les autres menus */
+@media (max-width: 900px) {
+    body.design-verre .canvas-sidebar {
+        background: linear-gradient(var(--glass-bg-pop), var(--glass-bg-pop)), var(--bg);
+        border-color: var(--glass-border);
+        box-shadow: var(--glass-shadow);
+    }
+    body.design-verre .canvas-code-filebar {
+        border-bottom-color: var(--glass-border);
+    }
+}
+
+@container canvas-panel (max-width: 460px) {
+    body.design-verre .canvas-sidebar {
+        background: linear-gradient(var(--glass-bg-pop), var(--glass-bg-pop)), var(--bg);
+        border-color: var(--glass-border);
+        box-shadow: var(--glass-shadow);
+    }
+    body.design-verre .canvas-code-filebar {
+        border-bottom-color: var(--glass-border);
+    }
+}
+
+body.design-verre .canvas-preview-bar {
+    background: linear-gradient(var(--glass-bg-pop), var(--glass-bg-pop)), var(--bg);
+    border-bottom-color: var(--glass-border);
+}
+
+/* Opaque : dans le volet déjà en verre, un second flou ne s'applique pas */
+body.design-verre .cdoc-toolbar:not(.is-docked),
+body.design-verre .cdoc-tb-menu,
+body.design-verre .canvas-download-menu,
+body.design-verre .canvas-preview-menu {
+    background: linear-gradient(var(--glass-bg-pop), var(--glass-bg-pop)), var(--bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-shadow);
+}
+
+body.design-verre .conv-context-menu,
+body.design-verre .conv-item.is-moving {
+    background: linear-gradient(var(--glass-bg-pop), var(--glass-bg-pop)), var(--bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-shadow);
+}
+
+body.design-verre .conv-context-menu {
+    border-radius: 12px;
+}
+
+body.design-verre .cdoc-toolbar.is-docked {
+    background: transparent;
+}
+
+body.design-verre .cdoc-tb-input {
+    background: var(--glass-bg-strong);
+}
+
+/* Canvas fermé : bande à droite ; il glisse depuis elle (canvas.js, --canvas-rail, --canvas-rail-bg) */
+body.design-verre .canvas-peek-tab {
+    flex-shrink: 0;
+    width: var(--sidebar-peek);
+    margin: var(--glass-gap) 0;
+    border: 1px solid var(--glass-border);
+    border-right-width: 0;
+    border-radius: var(--glass-radius) 0 0 var(--glass-radius);
+    background: var(--glass-bg-strong);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    box-shadow: var(--glass-shadow);
+    cursor: pointer;
+}
+
+@media (min-width: 901px) {
+    body.design-verre .canvas-panel {
+        --canvas-rail: var(--sidebar-peek);
+        --canvas-rail-bg: var(--glass-bg-strong);
+    }
+}
+
+@media (max-width: 768px) {
+    body.design-verre {
+        --glass-gap: 8px;
+        --sidebar-extra: 8px;
+    }
+}
+
+/* Petit écran : le canvas en volet flottant au lieu du plein écran */
+@media (max-width: 900px) {
+    body.design-verre .canvas-panel {
+        top: var(--glass-gap);
+        right: var(--glass-gap);
+        bottom: var(--glass-gap);
+        left: var(--glass-gap);
+        width: auto !important;
+        height: auto;
+        margin: 0;
+        background: var(--glass-bg-strong);
+    }
+
+    /* Voile qui paraît et s'efface pendant que le volet glisse (canvas.js) */
+    body.design-verre.canvas-active::after,
+    body.design-verre.canvas-closing::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: 9199;
+        background: var(--glass-scrim);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+        animation: verre-voile-in 0.25s ease;
+    }
+
+    body.design-verre.canvas-closing::after {
+        animation: verre-voile-out 0.25s ease forwards;
+    }
+}
+
+@keyframes verre-voile-in {
+    from { opacity: 0; }
+}
+
+@keyframes verre-voile-out {
+    to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.design-verre.canvas-active::after,
+    body.design-verre.canvas-closing::after {
+        animation: none;
+    }
+}
+
+/* --- Stockage en cartes de verre --- */
+body.design-verre #panel-stockage[data-storage-view="home"] .storage-home {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-top: 6px;
+}
+
+body.design-verre .storage-overview {
+    order: 1;
+    margin: 0;
+    padding: 16px 18px;
+    border: 0;
+    background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+body.design-verre .storage-overview-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* Collée à « Espace utilisé » (l'écart de la carte est de 14 px) */
+body.design-verre .storage-overview-quota {
+    margin-top: -10px;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+body.design-verre .storage-overview-bar {
+    background: color-mix(in srgb, var(--text) 8%, transparent);
+}
+
+body.design-verre .storage-home-actions {
+    order: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    overflow: hidden;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+body.design-verre .storage-home-btn {
+    display: grid;
+    grid-template-columns: 34px 1fr auto 16px;
+    align-items: center;
+    column-gap: 12px;
+    min-height: 0;
+    padding: 12px 16px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+}
+
+body.design-verre .storage-home-btn:hover,
+body.design-verre .storage-home-btn:active {
+    transform: none;
+    background: color-mix(in srgb, var(--text) 4%, transparent);
+    box-shadow: none;
+}
+
+body.design-verre .storage-home-btn + .storage-home-btn {
+    border-top: 1px solid var(--border);
+}
+
+body.design-verre .storage-home-btn-top,
+body.design-verre .storage-home-btn-bottom {
+    display: contents;
+}
+
+body.design-verre .storage-home-btn-icon {
+    grid-column: 1;
+    grid-row: 1;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+}
+
+body.design-verre .storage-home-btn-text {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+}
+
+body.design-verre .storage-home-btn-size {
+    grid-column: 3;
+    grid-row: 1;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+body.design-verre .storage-home-btn-chevron {
+    grid-column: 4;
+    grid-row: 1;
+}
+
+body.design-verre .storage-home-description {
+    order: 3;
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+body.design-verre .storage-toolbar {
+    padding: 8px 14px;
+    border-bottom: 0;
+}
+
+body.design-verre .storage-list:not(.storage-list-gallery) {
+    padding: 0;
+}
+
+body.design-verre .storage-list:not(.storage-list-gallery) .storage-row {
+    padding: 10px 14px;
+    border-radius: 0;
+    background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+body.design-verre .storage-list:not(.storage-list-gallery) .storage-row + .storage-row {
+    border-top: 1px solid var(--border);
+}
+
+body.design-verre .storage-list:not(.storage-list-gallery) > .storage-row:first-child {
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+}
+
+body.design-verre .storage-list:not(.storage-list-gallery) .storage-row:not(:has(+ .storage-row)) {
+    border-bottom-left-radius: 14px;
+    border-bottom-right-radius: 14px;
+}
+
+body.design-verre .storage-list:not(.storage-list-gallery) .storage-row:hover {
+    background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+body.design-verre .storage-list:not(.storage-list-gallery) .storage-row.selected {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+body.design-verre .storage-list:not(.storage-list-gallery) .storage-row.selected:hover {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+body.design-verre .storage-row-cb,
+body.design-verre .storage-master-label input {
+    -webkit-appearance: none;
+    appearance: none;
+    display: inline-grid;
+    place-content: center;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    border: 1.5px solid var(--border-input);
+    border-radius: 50%;
+    background: var(--bg);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+body.design-verre .storage-row-cb:checked,
+body.design-verre .storage-master-label input:checked,
+body.design-verre .storage-master-label input:indeterminate {
+    border-color: var(--accent);
+    background: var(--accent);
+}
+
+body.design-verre .storage-row-cb:checked::after,
+body.design-verre .storage-master-label input:checked::after {
+    content: '';
+    width: 11px;
+    height: 11px;
+    background: #fff;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+body.design-verre .storage-master-label input:indeterminate::after {
+    content: '';
+    width: 8px;
+    height: 2px;
+    border-radius: 1px;
+    background: #fff;
+}
+
+body.design-verre .storage-row-bar {
+    height: 4px;
+    border-radius: 2px;
+}
+
+body.design-verre .storage-tile {
+    border: 0;
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px var(--border);
+}
+
+body.design-verre .storage-tile:hover {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, var(--border-input)), 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+body.design-verre .storage-tile.selected {
+    box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+body.design-verre .storage-tile-badge,
+body.design-verre .storage-tile-size {
+    border-radius: 7px;
+    background: rgba(0, 0, 0, 0.42);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+}
+
+body.design-verre .storage-action-bar {
+    border-radius: 14px;
+}
+
+/* --- Menus, fenêtres et boîtes de dialogue en verre, transparence plafonnée (--glass-bg-menu) ---
+   Liste des modèles, des prompts et menu Copier restent pleins : ils débordent de leur cadre en verre, où le flou ne s'applique pas */
+body.design-verre .sp-modal-overlay,
+body.design-verre .budget-alert-overlay,
+body.design-verre .custom-dialog-overlay {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+
+body.design-verre .custom-dialog,
+body.design-verre .sp-modal,
+body.design-verre .budget-alert-popup {
+    --dialog-bg: var(--glass-bg-menu);
+    --dialog-border: var(--glass-border);
+    background: var(--dialog-bg);
+    border-color: var(--dialog-border);
+}
+
+/* Configuration : la colonne des onglets et les en-têtes teintent le verre au lieu de le couvrir */
+body.design-verre .apikeys-tabs,
+body.design-verre .apikeys-panel > h3,
+body.design-verre .apikeys-panel > h3 + .apikey-intro,
+body.design-verre .apikeys-close-btn {
+    background: var(--bg-hover);
+}
+
+body.design-verre .apikeys-close-btn:hover {
+    background: var(--bg-active);
+}
+
+/* Pas les menus posés dans un cadre déjà en verre (volet du Canvas, liste des catégories) : leur flou ne s'y applique pas */
+body.design-verre .conv-cat-popup,
+body.design-verre .conv-context-menu,
+body.design-verre .share-menu {
+    background: var(--glass-bg-menu);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    border-color: var(--glass-border);
+}
+
+/* Pointe du menu des catégories : seule sa moitié extérieure, sinon elle double la teinte sur le menu */
+body.design-verre .conv-cat-popup::before {
+    background: var(--glass-bg-menu);
+    -webkit-backdrop-filter: var(--glass-filter);
+    backdrop-filter: var(--glass-filter);
+    border-color: var(--glass-border);
+    clip-path: polygon(0 0, 0 100%, 100% 100%);
+}

@@ -1,0 +1,1482 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: blob: data:; script-src 'self' file: 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http://localhost:* http://127.0.0.1:*; font-src 'self' file: data:; media-src 'self' file: data: blob:; connect-src 'self' file: blob: data: https://api.openai.com https://api.anthropic.com https://api.deepseek.com https://api.mistral.ai https://api.perplexity.ai https://api.x.ai https://api.z.ai https://generativelanguage.googleapis.com https://openrouter.ai https://cdn.jsdelivr.net http://localhost:* http://127.0.0.1:*; worker-src 'self' file: blob: https://cdn.jsdelivr.net; frame-src 'self' file: blob: data:; object-src 'none'; base-uri 'self'; form-action 'none';">
+    <title>DavidTwentyAI</title>
+    <link rel="icon" type="image/svg+xml" href="images/DavidTwentyAI.svg">
+    <link rel="stylesheet" href="css/style.css" id="main-css">
+    <link rel="stylesheet" href="css/design-verre.css">
+    <script>
+    (function(){
+        var cssLoadError = false;
+        function showCSSError(){
+            if(document.getElementById('davidtwentyai-css-error')) return;
+            var overlay=document.createElement('div');
+            overlay.id='davidtwentyai-css-error';
+            overlay.style.cssText='position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif';
+            overlay.innerHTML='<div style="background:#fff;color:#333;border-radius:16px;padding:32px 36px;max-width:520px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.25);text-align:left;line-height:1.6">'
+                +'<h2 style="margin:0 0 12px;font-size:1.25rem;color:#d35400">Oh, on dirait que DavidTwentyAI a un petit souci</h2>'
+                +'<p style="margin:0 0 14px;font-size:0.92rem">Le fichier de style (CSS) est introuvable ou endommag\u00e9. Cela arrive parfois lors de la d\u00e9compression du dossier.</p>'
+                +'<p style="margin:0 0 8px;font-size:0.92rem;font-weight:600">Marche \u00e0 suivre :</p>'
+                +'<ol style="margin:0 0 14px;padding-left:20px;font-size:0.88rem">'
+                +'<li>Supprimez le dossier DavidTwentyAI actuel</li>'
+                +'<li>Supprimez le fichier .zip</li>'
+                +'<li>Ret\u00e9l\u00e9chargez DavidTwentyAI</li>'
+                +'<li>D\u00e9compressez le nouveau fichier .zip</li>'
+                +'<li>Ouvrez <strong>index.html</strong></li>'
+                +'</ol>'
+                +'</div>';
+            document.body.appendChild(overlay);
+        }
+        document.getElementById('main-css').addEventListener('error',function(){
+            cssLoadError = true;
+        });
+        window.addEventListener('load',function(){
+            if(cssLoadError){ showCSSError(); return; }
+            var sidebar=document.getElementById('sidebar');
+            if(!sidebar) return;
+            var display=window.getComputedStyle(sidebar).display;
+            if(display!=='flex') showCSSError();
+        });
+    })();
+    </script>
+</head>
+<body>
+    <!-- Filtre des bulles « Génération en cours… » : flou puis seuil d'opacité, qui soude deux disques proches -->
+    <svg class="svg-defs" width="0" height="0" aria-hidden="true" focusable="false">
+        <filter id="davidtwentyai-goo" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+            <feGaussianBlur stdDeviation="1.2"/>
+            <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 8 -3.5"/>
+        </filter>
+        <filter id="davidtwentyai-goo-sm" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+            <feGaussianBlur stdDeviation="0.75"/>
+            <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 8 -3.5"/>
+        </filter>
+    </svg>
+    <script>
+    // Thème et transparence du « Verre » appliqués avant le rendu du body, contre un flash en clair
+    (function () {
+        var t = localStorage.getItem('minou-theme') || 'dark';
+        if (t === 'auto') document.body.classList.add('theme-auto');
+        else if (t === 'dark') document.body.classList.add('dark');
+        document.body.classList.add('design-verre');
+        var w = localStorage.getItem('minou-wallpaper') || 'noir';
+        if (w && /^[a-z]+$/.test(w) && w !== 'corail') document.body.dataset.wallpaper = w;
+        var sw = parseInt(localStorage.getItem('minou-sidebar-width'), 10);
+        if (sw >= 200 && sw <= 440) document.body.style.setProperty('--sidebar-width', sw + 'px');
+        var g = parseInt(localStorage.getItem('minou-glass-transparency'), 10);
+        if (!(g >= 0 && g <= 100)) g = 30;
+        document.body.style.setProperty('--glass-more', String(Math.max(0, (50 - g) / 50)));
+        document.body.style.setProperty('--glass-less', String(Math.max(0, (g - 50) / 50)));
+    })();
+    </script>
+    <!-- Splash animé en CSS pur (compositeur) : fluide même si le main thread est occupé -->
+    <div id="davidtwentyai-splash" class="davidtwentyai-splash" aria-hidden="true">
+        <img src="images/DavidTwentyAI.svg" alt="" class="davidtwentyai-splash-logo">
+        <p class="davidtwentyai-splash-text">Bienvenue sur DavidTwentyAI !</p>
+        <div class="davidtwentyai-splash-spinner" aria-hidden="true"></div>
+    </div>
+    <script>
+    // Splash affiché jusqu'à la durée minimale ET dbReady (app.js) ; écouteurs posés avant app.js
+    (function () {
+        var s = document.getElementById('davidtwentyai-splash');
+        if (!s) return;
+        var state = { minElapsed: false, dbReady: false };
+        function maybeHide() {
+            if (!state.minElapsed || !state.dbReady) return;
+            if (s.classList.contains('fading-out')) return;
+            s.classList.add('fading-out');
+        }
+        window.__davidtwentyaiSplashReady = function () {
+            state.dbReady = true;
+            maybeHide();
+        };
+        setTimeout(function () { state.minElapsed = true; maybeHide(); }, 1800);
+        setTimeout(function () { if (!state.dbReady) s.classList.add('show-spinner'); }, 2500);
+        s.addEventListener('animationend', function (e) {
+            if (e.animationName === 'davidtwentyai-splash-out' && s.parentNode) {
+                s.parentNode.removeChild(s);
+            }
+        });
+    })();
+    </script>
+    <aside class="sidebar" id="sidebar">
+        <!-- Double-clic : largeur d'origine (app.js : initSidebarResize) -->
+        <div id="sidebar-resize-handle" class="sidebar-resize-handle" title="Glisser pour redimensionner · double-clic : largeur d'origine" aria-hidden="true"></div>
+        <!-- Sur grand écran, le volet replié laisse dépasser une bande qui le montre -->
+        <button type="button" id="sidebar-panel-btn" class="panel-toggle-btn sidebar-panel-btn" title="Masquer le panneau" aria-label="Masquer le panneau" aria-controls="sidebar" aria-expanded="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        </button>
+        <h1 class="sidebar-title"><img src="images/DavidTwentyAI.svg" class="sidebar-logo" alt="DavidTwentyAI"> DavidTwentyAI <span class="version-badge">v3.3</span></h1>
+        <button id="new-chat-btn" class="new-chat-btn">Nouvelle conversation</button>
+
+        <div class="conv-section">
+            <div class="cat-select-row">
+                <div id="cat-select" class="cat-select-custom">
+                    <span class="cat-select-label">Toutes les catégories</span>
+                    <svg class="cat-select-arrow" width="8" height="8" viewBox="0 0 8 8"><path d="M1 3 L4 6 L7 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <button id="cat-manage-btn" class="cat-manage-btn" title="Gérer les catégories">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+            </div>
+            <div id="cat-select-dropdown" class="cat-select-dropdown" style="display:none"></div>
+            <input type="text" id="conv-search" class="conv-search" placeholder="Rechercher...">
+            <div class="conv-list-container">
+                <div id="conv-list" class="conv-list"><div class="conv-list-loading"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></div></div>
+            </div>
+        </div>
+
+        <div class="sidebar-bottom">
+            <div class="sidebar-bottom-row">
+                <button id="sidebar-roles-btn" class="sidebar-bottom-btn" title="Gérer les rôles enregistrés">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Rôles
+                </button>
+                <button id="sidebar-prompts-btn" class="sidebar-bottom-btn" title="Gérer les prompts enregistrés">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Prompts
+                </button>
+            </div>
+            <button id="dashboard-btn" class="sidebar-bottom-btn" title="Sauvegarder ou importer une sauvegarde">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Sauvegardes
+            </button>
+            <button id="apikeys-btn" class="sidebar-bottom-btn" title="Clés API, thème, statistiques, etc...">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Configuration
+            </button>
+            <input type="file" id="import-file-input" accept=".zip,.json,application/zip,application/json" hidden>
+        </div>
+    </aside>
+
+    <main class="main">
+        <div id="budget-alert-overlay" class="budget-alert-overlay" style="display:none">
+            <div class="budget-alert-popup">
+                <div class="budget-alert-icon">⚠️</div>
+                <div id="budget-alert-text" class="budget-alert-text"></div>
+                <button id="budget-alert-close" class="budget-alert-close">Compris</button>
+            </div>
+        </div>
+        <div id="no-model-alert-overlay" class="budget-alert-overlay" style="display:none">
+            <div class="budget-alert-popup">
+                <div class="budget-alert-icon">⚠️</div>
+                <div id="no-model-alert-text" class="budget-alert-text"></div>
+                <button id="no-model-alert-close" class="budget-alert-close">Compris</button>
+            </div>
+        </div>
+        <!-- Custom Alert / Confirm -->
+        <div id="custom-dialog-overlay" class="custom-dialog-overlay" style="display:none">
+            <div class="custom-dialog">
+                <div id="custom-dialog-icon" class="custom-dialog-icon"></div>
+                <div id="custom-dialog-message" class="custom-dialog-message"></div>
+                <div id="custom-dialog-actions" class="custom-dialog-actions">
+                    <button id="custom-dialog-cancel" class="custom-dialog-btn custom-dialog-btn-cancel">Annuler</button>
+                    <button id="custom-dialog-ok" class="custom-dialog-btn custom-dialog-btn-ok">OK</button>
+                </div>
+            </div>
+        </div>
+        <!-- Petit écran (900 px et moins) : boutons des volets flottants ; sur grand écran, dans les volets -->
+        <div id="chat-topbar" class="chat-topbar" hidden>
+            <button id="topbar-sidebar-btn" class="chat-topbar-btn" title="Masquer le panneau">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+            </button>
+            <button id="topbar-canvas-btn" class="chat-topbar-btn" title="Ouvrir le plan de travail" style="display:none">
+                <svg class="canvas-space-icon canvas-space-icon-artifacts" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                <svg class="canvas-space-icon canvas-space-icon-doc" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                <span class="side-canvas-count"></span>
+            </button>
+        </div>
+        <div id="chat-container" class="chat-container">
+            <div id="empty-chat-placeholder" class="empty-chat-placeholder">
+                <img src="images/DavidTwentyAI.webp" alt="DavidTwentyAI" class="empty-chat-logo">
+                <p class="empty-chat-text">Sélectionnez une conversation ou démarrez-en une nouvelle en saisissant votre message ci-dessous.</p>
+                <div id="empty-chat-category" class="empty-chat-category" style="display:none"></div>
+            </div>
+        </div>
+        <div id="model-alert" class="model-alert" style="display:none">
+            <span id="model-alert-text">Veuillez choisir un modèle (texte ou image) avant d'envoyer.</span>
+            <button id="model-alert-close" class="model-alert-close" type="button" aria-label="Fermer">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="token-bar" id="token-bar">
+            <div class="export-btns-group">
+                <div class="share-btn-wrapper footer-action-wrapper" style="position:relative">
+                    <button id="share-btn" class="export-action-btn" aria-label="Télécharger" aria-describedby="share-btn-tooltip" style="display:none">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    </button>
+                    <div id="share-menu" class="share-menu">
+                        <div class="share-menu-item" id="share-menu-md">Télécharger la conversation au format Markdown</div>
+                        <div class="share-menu-item" id="share-menu-html">Télécharger la conversation au format HTML</div>
+                    </div>
+                    <span id="share-btn-tooltip" class="footer-action-tooltip" role="tooltip">Télécharger</span>
+                </div>
+                <div class="footer-action-wrapper">
+                    <button id="summary-btn" class="export-action-btn" aria-label="Résumé IA pour nouvelle conversation" aria-describedby="summary-btn-tooltip" style="display:none">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="14" x2="14" y2="14"/><line x1="4" y1="18" x2="10" y2="18"/></svg>
+                    </button>
+                    <span id="summary-btn-tooltip" class="footer-action-tooltip" role="tooltip">Résumé IA pour nouvelle conversation</span>
+                </div>
+            </div>
+            <span id="cost-info" tabindex="0" aria-describedby="cost-token-tooltip">
+                <span id="cost-value"></span>
+                <span id="cost-token-tooltip" role="tooltip"></span>
+            </span>
+        </div>
+
+        <div class="input-area">
+            <div id="attach-preview"></div>
+            <!-- Bandeaux au-dessus de la saisie (app.js : updateCompactSuggest, updateWebSearchSuggest) -->
+            <div id="compact-suggest" class="input-suggest compact-suggest" aria-live="polite" hidden>
+                <div class="input-suggest-chip">
+                    <svg class="input-suggest-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22v-6"/><path d="M12 8V2"/><path d="M4 12H2"/><path d="M10 12H8"/><path d="M16 12h-2"/><path d="M22 12h-2"/><path d="m15 19-3-3-3 3"/><path d="m15 5-3 3-3-3"/></svg>
+                    <span class="input-suggest-text"><span id="compact-suggest-long" class="input-suggest-long"></span><span id="compact-suggest-short" class="input-suggest-short"></span></span>
+                    <button type="button" id="compact-suggest-btn" class="input-suggest-btn" aria-label="Compacter la conversation"><span class="input-suggest-btn-long">Compacter la conversation</span><span class="input-suggest-btn-short">Compacter</span></button>
+                    <button type="button" id="compact-suggest-close" class="input-suggest-close" aria-label="Ignorer" title="Ignorer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                </div>
+            </div>
+            <div id="web-search-suggest" class="input-suggest web-search-suggest" aria-live="polite" hidden>
+                <div class="input-suggest-chip">
+                    <svg class="input-suggest-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <span class="input-suggest-text"><span class="input-suggest-long">Lien détecté&nbsp;: sans la recherche web, l'IA ne voit que l'adresse, pas la page.</span><span class="input-suggest-short">Lien détecté</span></span>
+                    <button type="button" id="web-search-suggest-btn" class="input-suggest-btn" aria-label="Activer la recherche web"><span class="input-suggest-btn-long">Activer la recherche web</span><span class="input-suggest-btn-short">Activer</span></button>
+                    <button type="button" id="web-search-suggest-close" class="input-suggest-close" aria-label="Ignorer" title="Ignorer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                </div>
+            </div>
+            <div class="input-row">
+            <div class="input-wrapper">
+                <select id="model-select" class="model-select input-model-select">
+                    <option value="">—</option>
+                </select>
+                <!-- Select caché pour compatibilité JS -->
+                <select id="image-format-select" class="model-select" style="display:none">
+                    <option value="square">Carré</option>
+                    <option value="vertical">Vertical</option>
+                    <option value="horizontal">Horizontal</option>
+                </select>
+                <input type="file" id="file-input" accept="image/*,.pdf,.txt,.md,.csv,.json,.xml,.log,.js,.py,.html,.css" multiple hidden>
+                <button type="button" id="input-band-settings" class="input-band-settings" title="Réglages de la conversation" aria-controls="right-panel" aria-expanded="false" hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="4" x2="14" y2="4"/><line x1="10" y1="4" x2="3" y2="4"/><line x1="21" y1="12" x2="12" y2="12"/><line x1="8" y1="12" x2="3" y2="12"/><line x1="21" y1="20" x2="16" y2="20"/><line x1="12" y1="20" x2="3" y2="20"/><line x1="14" y1="2" x2="14" y2="6"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="16" y1="18" x2="16" y2="22"/></svg>
+                    <span>Réglages<span class="input-band-long"> de la conversation</span></span>
+                    <span class="input-band-changes" hidden><span class="input-band-changes-list"></span><span class="input-band-changes-count"></span></span>
+                </button>
+                <div class="input-content">
+                    <div class="input-line-1">
+                        <textarea
+                            id="prompt-input"
+                            class="prompt-input"
+                            placeholder="Écrivez votre message..."
+                            rows="1"
+                        ></textarea>
+                    </div>
+                    <div class="input-line-2">
+                        <div class="input-line-2-left">
+                            <button id="attach-btn" title="Joindre un fichier"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg></button>
+                            <button id="web-search-btn" class="input-icon-btn custom-select-info" aria-label="Recherche web" style="display:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></button>
+                            <button id="canvas-toggle-btn" class="input-icon-btn custom-select-info" aria-label="Plan de travail" aria-pressed="false" style="display:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></button>
+                        </div>
+                        <div class="input-line-2-center">
+                            <button id="toolbar-insert-btn" class="prompt-toolbar-btn" title="Insérer un prompt enregistré" style="display:none">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                <span class="btn-label" data-short="Insérer">Insérer un prompt</span>
+                            </button>
+                            <button id="toolbar-enhance-btn" class="prompt-toolbar-btn" title="Améliorer le prompt" style="display:none">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+                                <span class="btn-label" data-short="Améliorer">Améliorer le prompt</span>
+                            </button>
+                            <button id="toolbar-save-btn" class="prompt-toolbar-btn" title="Enregistrer le prompt" style="display:none">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                <span class="btn-label" data-short="Enregistrer">Enregistrer le prompt</span>
+                            </button>
+                        </div>
+                        <div class="input-line-2-right">
+                            <!-- Son panneau est dans .input-row, au-dessus de la saisie -->
+                            <div id="context-meter-wrap" class="context-meter-wrap footer-action-wrapper" hidden>
+                                <button type="button" id="context-meter" class="context-meter" aria-label="Contexte de la conversation" aria-haspopup="dialog" aria-expanded="false" aria-controls="context-popover" aria-describedby="context-meter-tooltip">
+                                    <svg width="16" height="16" viewBox="0 0 20 20" aria-hidden="true"><circle class="context-meter-track" cx="10" cy="10" r="8" pathLength="100"/><circle class="context-meter-arc" cx="10" cy="10" r="8" pathLength="100"/></svg>
+                                </button>
+                                <span id="context-meter-tooltip" class="footer-action-tooltip context-meter-tooltip" role="tooltip"></span>
+                            </div>
+                            <span id="mic-level" class="mic-level" title="Les barres bougent quand le micro vous entend" hidden><i></i><i></i><i></i><i></i><i></i></span>
+                            <button id="mic-btn" class="mic-btn" title="Dicter"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="1" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+                        </div>
+                    </div>
+                </div>
+                <div id="prompt-picker-dropdown-wrapper" class="prompt-picker-dropdown-wrapper" style="display:none"><div id="prompt-picker-dropdown" class="prompt-picker-dropdown"></div></div>
+                <!-- Éléments cachés conservés pour compatibilité -->
+                <button id="enhance-prompt-btn" class="enhance-prompt-btn" style="display:none!important" disabled></button>
+                <button id="send-btn" style="display:none!important" disabled></button>
+            </div>
+            <!-- Hors de .input-wrapper, dont le flou (« Verre ») empêcherait le sien -->
+            <div id="context-popover" class="context-popover" role="dialog" aria-label="Contexte de la conversation" tabindex="-1" hidden></div>
+            <div id="file-mention-list" class="file-mention-list" role="listbox" aria-label="Fichiers des Artifacts" hidden></div>
+            </div>
+            <span class="input-hint" id="input-hint"></span>
+        </div>
+    </main>
+
+    <aside class="right-panel" id="right-panel">
+        <div class="rp-tabs">
+            <button class="rp-tab active" data-rp-tab="general">Général</button>
+            <button class="rp-tab" data-rp-tab="image">Image</button>
+        </div>
+        <div class="rp-tab-content active" id="rp-tab-general">
+
+            <div class="right-panel-section rp-param-disabled" id="rp-role-section">
+            <div class="right-panel-header">
+                <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-role-toggle" aria-label="Envoyer le rôle"><span class="right-panel-title">Rôle</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Le rôle est le « prompt système » de la conversation : les consignes que l'IA suit à chaque réponse, avant vos messages. Écrivez-y qui elle doit être et comment répondre, par exemple « professeur de français patient, qui répond en phrases courtes et corrige les fautes »&#10;&#10;Choisissez un rôle enregistré (Rôles, en bas à gauche) ou écrivez-le ici. Vos instructions personnalisées (Configuration › Instructions) s'y ajoutent, sauf si le rôle les écrase.">?</span></span>
+                <input type="file" id="sp-import-file" accept=".json" hidden>
+        </div>
+        <div class="right-panel-select-row">
+            <select id="sp-select" class="model-select">
+                <option value="">Sélectionner un rôle enregistré</option>
+            </select>
+        </div>
+        <textarea id="sp-textarea" class="sp-textarea" placeholder="Sélectionnez un rôle (prompt system) ou renseignez-en un ici."></textarea>
+        <div class="right-panel-role-actions" id="rp-role-actions" style="display:none">
+            <button id="sp-edit-btn" class="rp-role-btn" title="Enregistrer les modifications" style="display:none">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Enregistrer les modifications
+            </button>
+        </div>
+        <button type="button" id="rp-instructions-note" class="rp-instructions-note" hidden>+ Instructions personnalisées</button>
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-effort-section" data-or-param="reasoning">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-effort-toggle"><span class="right-panel-title">Effort de raisonnement</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Le temps que le modèle passe à réfléchir avant de répondre (modèles qui raisonnent).&#10;&#10;Plus il est élevé, plus la réponse est soignée sur les problèmes difficiles (maths, code, analyse), mais plus elle est lente et chère : la réflexion est facturée comme du texte. Faible ou Minimal suffit pour une question simple ou une conversation.&#10;&#10;Décoché : le niveau par défaut du modèle.">?</span></span>
+                </div>
+                <select id="rp-effort-select" class="model-select rp-cat-select">
+                    <option value="minimal">Minimal</option>
+                    <option value="low">Faible</option>
+                    <option value="medium" selected>Moyen</option>
+                    <option value="high">Élevé</option>
+                </select>
+            </div>
+            <div class="right-panel-section" id="rp-max-history-images-section">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><span class="right-panel-title">Nombre d'images à renvoyer</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="À chaque message, DavidTwentyAI renvoie à l'IA les images des messages précédents, pour qu'elle s'en souvienne. Dans une longue conversation, c'est cher et lent : ce réglage garde seulement les N plus récentes.&#10;&#10;Les images jointes au message que vous envoyez partent toujours. 0 : aucune image des messages précédents.">?</span></span>
+                    <span class="rp-range-value" id="rp-max-history-images-value">4</span>
+                </div>
+                <input type="range" id="rp-max-history-images-range" class="rp-range" min="0" max="12" step="1" value="4">
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-temperature-section" data-or-param="temperature">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-temperature-toggle"><span class="right-panel-title">Température</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="La part de hasard dans le choix des mots.&#10;&#10;• 0 à 0,3 : réponses précises et stables, pour du code, des faits, des calculs ;&#10;• 0,7 : un bon équilibre ;&#10;• 1 à 1,3 : plus créatif et varié, pour des idées ou une histoire. Au-delà, le texte peut perdre le fil.&#10;&#10;Décoché : la valeur par défaut du modèle. Certains modèles qui raisonnent l'ignorent.">?</span></span>
+                    <span class="rp-range-value" id="rp-temperature-value">0.7</span>
+                </div>
+                <input type="range" id="rp-temperature-range" class="rp-range" min="0" max="2" step="0.1" value="0.7">
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-top-p-section" data-or-param="top_p">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-top-p-toggle"><span class="right-panel-title">Top P</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Une autre façon de doser le hasard : l'IA choisit seulement parmi les mots les plus probables, qui ensemble font P de chances sur 1.&#10;&#10;• 1 : aucun mot écarté ;&#10;• 0,9 : les mots improbables sont écartés ;&#10;• 0,5 : réponses très prévisibles.&#10;&#10;Réglez la température ou le Top P, pas les deux. Décoché : la valeur par défaut du modèle.">?</span></span>
+                    <span class="rp-range-value" id="rp-top-p-value">1.0</span>
+                </div>
+                <input type="range" id="rp-top-p-range" class="rp-range" min="0" max="1" step="0.05" value="1">
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-max-tokens-section" data-or-param="max_tokens">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-max-tokens-toggle"><span class="right-panel-title">Tokens max</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="La longueur maximale de la réponse, en tokens : 1 000 tokens font environ 700 mots en français. Une réponse qui atteint la limite est coupée net.&#10;&#10;Pour un modèle qui raisonne, sa réflexion compte aussi : une limite basse peut couper la réponse avant même qu'elle commence.&#10;&#10;Décoché : DavidTwentyAI laisse au modèle toute la longueur qu'il permet.">?</span></span>
+                    <span class="rp-range-value" id="rp-max-tokens-value">4096</span>
+                </div>
+                <input type="range" id="rp-max-tokens-range" class="rp-range" min="256" max="16384" step="256" value="4096">
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-web-searches-section">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-web-searches-toggle"><span class="right-panel-title">Recherches web</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Recherches au plus chaque fois que l'IA cherche sur le web (5 sans ce réglage). Google ne permet pas de les limiter.">?</span></span>
+                    <span class="rp-range-value" id="rp-web-searches-value">5</span>
+                </div>
+                <input type="range" id="rp-web-searches-range" class="rp-range" min="1" max="20" step="1" value="5">
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-frequency-penalty-section" data-or-param="frequency_penalty">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-freq-penalty-toggle"><span class="right-panel-title">Pénalité de fréquence</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Réduit les répétitions : plus un mot est déjà revenu souvent dans la réponse, moins l'IA le réutilise.&#10;&#10;• 0 : aucun effet (par défaut) ;&#10;• 0,3 à 0,8 : moins de répétitions, utile si l'IA tourne en rond ;&#10;• au-delà de 1 : le texte peut devenir étrange (synonymes forcés, mots rares).">?</span></span>
+                    <span class="rp-range-value" id="rp-freq-penalty-value">0.0</span>
+                </div>
+                <input type="range" id="rp-freq-penalty-range" class="rp-range" min="0" max="2" step="0.1" value="0">
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-presence-penalty-section" data-or-param="presence_penalty">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-presence-penalty-toggle"><span class="right-panel-title">Pénalité de présence</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Pousse l'IA vers de nouveaux mots et de nouveaux sujets : un mot déjà employé, même une seule fois, est un peu évité.&#10;&#10;• 0 : aucun effet (par défaut) ;&#10;• 0,3 à 0,8 : réponses plus variées, idées plus diverses ;&#10;• au-delà de 1 : l'IA peut s'écarter du sujet.&#10;&#10;La pénalité de fréquence vise plutôt les mots répétés souvent.">?</span></span>
+                    <span class="rp-range-value" id="rp-presence-penalty-value">0.0</span>
+                </div>
+                <input type="range" id="rp-presence-penalty-range" class="rp-range" min="0" max="2" step="0.1" value="0">
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-top-k-section" data-or-param="top_k" data-or-only="true" style="display:none">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-top-k-toggle"><span class="right-panel-title">Top K</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="L'IA choisit seulement entre les K mots les plus probables.&#10;&#10;• 0 : aucune limite (par défaut) ;&#10;• 40 à 50 : un peu plus prévisible ;&#10;• 1 : toujours le mot le plus probable.">?</span></span>
+                    <span class="rp-range-value" id="rp-top-k-value">0</span>
+                </div>
+                <input type="range" id="rp-top-k-range" class="rp-range" min="0" max="100" step="1" value="0">
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-min-p-section" data-or-param="min_p" data-or-only="true" style="display:none">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-min-p-toggle"><span class="right-panel-title">Min P</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Écarte les mots bien moins probables que le meilleur choix : avec 0,1, un mot doit avoir au moins 10 % des chances du plus probable.&#10;&#10;• 0 : désactivé (par défaut) ;&#10;• 0,05 à 0,1 : garde la créativité en évitant les mots incohérents, utile avec une température haute.">?</span></span>
+                    <span class="rp-range-value" id="rp-min-p-value">0</span>
+                </div>
+                <input type="range" id="rp-min-p-range" class="rp-range" min="0" max="1" step="0.01" value="0">
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-top-a-section" data-or-param="top_a" data-or-only="true" style="display:none">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-top-a-toggle"><span class="right-panel-title">Top A</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Comme Min P, mais le seuil grandit quand l'IA est sûre de son meilleur choix : elle écarte alors davantage les autres mots.&#10;&#10;• 0 : désactivé (par défaut) ;&#10;• 0,1 à 0,2 : si vous voulez essayer. Rarement utile.">?</span></span>
+                    <span class="rp-range-value" id="rp-top-a-value">0</span>
+                </div>
+                <input type="range" id="rp-top-a-range" class="rp-range" min="0" max="1" step="0.01" value="0">
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-rep-penalty-section" data-or-param="repetition_penalty" data-or-only="true" style="display:none">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-rep-penalty-toggle"><span class="right-panel-title">Répétition</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Pénalise tout mot déjà présent dans la conversation.&#10;&#10;• 1 : neutre (par défaut) ;&#10;• 1,05 à 1,2 : moins de répétitions ;&#10;• au-delà : le texte peut devenir incohérent.&#10;&#10;Proche des pénalités de fréquence et de présence : utilisez l'un ou l'autre.">?</span></span>
+                    <span class="rp-range-value" id="rp-rep-penalty-value">1.0</span>
+                </div>
+                <input type="range" id="rp-rep-penalty-range" class="rp-range" min="1" max="2" step="0.05" value="1">
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-seed-section" data-or-param="seed" data-or-only="true" style="display:none">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-seed-toggle"><span class="right-panel-title">Seed</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Un nombre qui fixe le hasard : avec le même nombre, la même demande et les mêmes réglages, l'IA donne en principe la même réponse. Pratique pour comparer l'effet d'un réglage.&#10;&#10;Tous les modèles ne le respectent pas exactement. Vide : une réponse différente à chaque fois.">?</span></span>
+                </div>
+                <input type="number" id="rp-seed-input" class="rp-text-input" placeholder="ex. 42" min="0" step="1">
+            </div>
+            <button id="rp-params-reset-btn" class="rp-role-btn" type="button">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                Réinitialiser les paramètres
+            </button>
+        </div>
+        <div class="rp-tab-content" id="rp-tab-image">
+            <div class="right-panel-section" id="rp-image-format-section">
+                <div class="right-panel-header">
+                    <span class="right-panel-title">Format d'image</span>
+                </div>
+                <div class="image-format-options">
+                    <button type="button" class="image-format-btn active" data-format="square" title="Carré (1:1)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                        <span>Carré</span>
+                    </button>
+                    <button type="button" class="image-format-btn" data-format="vertical" title="Portrait (9:16)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/></svg>
+                        <span>Portrait</span>
+                    </button>
+                    <button type="button" class="image-format-btn" data-format="horizontal" title="Paysage (16:9)">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/></svg>
+                        <span>Paysage</span>
+                    </button>
+                </div>
+                <select id="rp-gemini-ratio-select" class="model-select rp-cat-select rp-inline-providers" data-providers="google,openrouter" style="margin-top: 8px;">
+                    <option value="" selected>Sélectionner un ratio précis</option>
+                    <option value="1:1">1:1</option>
+                    <option value="2:3">2:3</option>
+                    <option value="3:2">3:2</option>
+                    <option value="3:4">3:4</option>
+                    <option value="4:3">4:3</option>
+                    <option value="4:5">4:5</option>
+                    <option value="5:4">5:4</option>
+                    <option value="9:16">9:16</option>
+                    <option value="16:9">16:9</option>
+                    <option value="21:9">21:9</option>
+                </select>
+            </div>
+            <div class="right-panel-section" id="rp-quality-section" data-providers="openai">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><span class="right-panel-title">Qualité</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Niveau de qualité du rendu. High est plus détaillé mais plus lent">?</span></span>
+                </div>
+                <select id="rp-quality-select" class="model-select rp-cat-select">
+                    <option value="auto">Auto</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high" selected>High</option>
+                </select>
+            </div>
+            <div class="right-panel-section" id="rp-openai-n-section" data-providers="openai">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><span class="right-panel-title">Nombre d'images</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Nombre d'images à générer par requête">?</span></span>
+                    <span class="rp-range-value" id="rp-openai-n-value">1</span>
+                </div>
+                <input type="range" id="rp-openai-n-range" class="rp-range" min="1" max="4" step="1" value="1">
+            </div>
+            <div class="right-panel-section" id="rp-openai-background-section" data-providers="openai">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><span class="right-panel-title">Fond</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Rendre le fond transparent, opaque ou laisser le modèle décider">?</span></span>
+                </div>
+                <select id="rp-openai-background-select" class="model-select rp-cat-select">
+                    <option value="auto" selected>Auto</option>
+                    <option value="opaque">Opaque</option>
+                    <option value="transparent">Transparent</option>
+                </select>
+            </div>
+            <div class="right-panel-section" id="rp-openai-format-section" data-providers="openai">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><span class="right-panel-title">Format de sortie</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Format du fichier image généré">?</span></span>
+                </div>
+                <select id="rp-openai-format-select" class="model-select rp-cat-select">
+                    <option value="png" selected>PNG</option>
+                    <option value="jpeg">JPEG</option>
+                    <option value="webp">WebP</option>
+                </select>
+            </div>
+            <div class="right-panel-section" id="rp-openai-compression-section" data-providers="openai">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><span class="right-panel-title">Compression</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Qualité JPEG/WebP (0 = plus compressé, 100 = moins compressé). Sans effet en PNG.">?</span></span>
+                    <span class="rp-range-value" id="rp-openai-compression-value">100</span>
+                </div>
+                <input type="range" id="rp-openai-compression-range" class="rp-range" min="0" max="100" step="1" value="100">
+            </div>
+            <div class="right-panel-section" id="rp-openai-moderation-section" data-providers="openai">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><span class="right-panel-title">Modération</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Niveau de filtrage des contenus sensibles">?</span></span>
+                </div>
+                <select id="rp-openai-moderation-select" class="model-select rp-cat-select">
+                    <option value="auto" selected>Auto</option>
+                    <option value="low">Faible</option>
+                </select>
+            </div>
+            <div class="right-panel-section" id="rp-gemini-size-section" data-providers="google,openrouter">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><span class="right-panel-title">Taille</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Résolution de l'image générée (1K, 2K, 4K)">?</span></span>
+                </div>
+                <select id="rp-gemini-size-select" class="model-select rp-cat-select">
+                    <option value="1K" selected>1K</option>
+                    <option value="2K">2K</option>
+                    <option value="4K">4K</option>
+                </select>
+            </div>
+            <div class="right-panel-section" id="rp-gemini-thinking-section" data-providers="google">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><span class="right-panel-title">Raisonnement</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Niveau de réflexion du modèle. Élevé donne une meilleure qualité mais est plus lent et coûteux">?</span></span>
+                </div>
+                <select id="rp-gemini-thinking-select" class="model-select rp-cat-select">
+                    <option value="minimal" selected>Minimal</option>
+                    <option value="high">Élevé</option>
+                </select>
+            </div>
+            <div class="right-panel-section rp-param-disabled" id="rp-img-seed-section" data-providers="openrouter" data-or-img-param="seed" style="display:none">
+                <div class="right-panel-header">
+                    <span class="rp-title-group"><input type="checkbox" class="rp-param-toggle" id="rp-img-seed-toggle"><span class="right-panel-title">Seed</span><span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Fixe la graine du générateur aléatoire pour reproduire exactement la même image à paramètres identiques. Laissez vide pour une génération aléatoire.">?</span></span>
+                </div>
+                <input type="number" id="rp-img-seed-input" class="rp-text-input" placeholder="ex. 42" min="0" step="1">
+            </div>
+            <button id="rp-image-params-reset-btn" class="rp-role-btn" type="button">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                Réinitialiser les paramètres
+            </button>
+        </div>
+    </aside>
+
+    <!-- Modale Rôle -->
+    <div id="sp-modal-overlay" class="sp-modal-overlay" style="display:none">
+        <div class="sp-modal">
+            <div class="sp-modal-head"><span class="sp-modal-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg></span><h3 id="sp-modal-title">Nouveau rôle</h3></div>
+            <label class="sp-modal-label" for="sp-modal-nom">Nom</label>
+            <input type="text" id="sp-modal-nom" class="sp-modal-input" placeholder="Ex : Assistant technique" required>
+            <label class="sp-modal-label" for="sp-modal-contenu">Contenu</label>
+            <div class="sp-modal-textarea-wrap">
+                <textarea id="sp-modal-contenu" class="sp-modal-textarea" rows="8" placeholder="Tu es un assistant..." required></textarea>
+                <button id="sp-modal-optimize" class="sp-modal-enhance-inside"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg> Améliorer avec l'IA</button>
+            </div>
+            <label class="save-list save-list-row sp-modal-override" for="sp-modal-ecraser">
+                <span class="save-list-text"><strong>Écraser les instructions personnalisées</strong><small>Ce rôle remplace vos instructions personnalisées («&nbsp;Configuration&nbsp;» → «&nbsp;Instructions&nbsp;») au lieu de s'y ajouter.</small></span>
+                <span class="budget-toggle save-switch"><input type="checkbox" id="sp-modal-ecraser"><span class="budget-toggle-slider"></span></span>
+            </label>
+            <div class="sp-modal-actions">
+                <button id="sp-modal-delete" class="cat-modal-delete-btn" style="display:none">Supprimer</button>
+                <span class="sp-modal-spacer"></span>
+                <button id="sp-modal-cancel" class="sp-modal-btn sp-modal-btn-cancel">&#8249; Retour</button>
+                <button id="sp-modal-save" class="sp-modal-btn sp-modal-btn-save">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Prompt enregistré -->
+    <div id="pr-modal-overlay" class="sp-modal-overlay" style="display:none">
+        <div class="sp-modal">
+            <div class="sp-modal-head"><span class="sp-modal-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span><h3 id="pr-modal-title">Nouveau prompt</h3></div>
+            <label class="sp-modal-label" for="pr-modal-nom">Nom</label>
+            <input type="text" id="pr-modal-nom" class="sp-modal-input" placeholder="Ex : Résume ce texte" required>
+            <label class="sp-modal-label" for="pr-modal-contenu">Contenu</label>
+            <div class="sp-modal-textarea-wrap">
+                <textarea id="pr-modal-contenu" class="sp-modal-textarea" rows="8" placeholder="Résume le texte suivant en 3 points..." required></textarea>
+                <button id="pr-modal-enhance" class="sp-modal-enhance-inside"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg> Améliorer avec l'IA</button>
+            </div>
+            <div class="sp-modal-actions">
+                <button id="pr-modal-delete" class="cat-modal-delete-btn" style="display:none">Supprimer</button>
+                <span class="sp-modal-spacer"></span>
+                <button id="pr-modal-cancel" class="sp-modal-btn sp-modal-btn-cancel">&#8249; Retour</button>
+                <button id="pr-modal-save" class="sp-modal-btn sp-modal-btn-save">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modale Configuration -->
+    <div id="apikeys-modal-overlay" class="sp-modal-overlay" style="display:none">
+        <div class="sp-modal apikeys-modal">
+            <div class="apikeys-tabs">
+                <button class="apikeys-tab active" data-tab="apimodeles"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg><span>API et Modèles</span></button>
+                <button class="apikeys-tab" data-tab="models"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg><span>Fonctionnalités</span></button>
+                <button class="apikeys-tab" data-tab="instructions"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M13 8H7"/><path d="M17 12H7"/></svg><span>Instructions</span></button>
+                <button class="apikeys-tab" data-tab="budget"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg><span>Budget</span></button>
+                <button class="apikeys-tab" data-tab="appearance"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.12a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.55-2.5 5.55-5.55C21.97 6.01 17.46 2 12 2z"/></svg><span>Apparence</span></button>
+                <button class="apikeys-tab" data-tab="stockage"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg><span>Stockage</span></button>
+                <div class="apikeys-tabs-spacer"></div>
+                <button class="apikeys-tab" data-tab="faq"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg><span>FAQ</span></button>
+                <button class="apikeys-tab" data-tab="statistiques"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Statistiques</span></button>
+                <button class="apikeys-tab" data-tab="share"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg><span>Partager</span></button>
+            </div>
+            <div class="apikeys-tab-content">
+                <button type="button" id="apikeys-close-btn" class="apikeys-close-btn" title="Fermer">&times;</button>
+                <!-- Panel API et Modèles -->
+                <div class="apikeys-panel active" id="panel-apimodeles">
+                    <h3>API et Modèles</h3>
+                    <p class="apikey-intro">Sélectionnez un fournisseur pour configurer sa clé API et choisir les modèles à afficher dans le sélecteur principal.</p>
+                    <div class="apikeys-panel-body">
+                        <div id="providers-tabs" class="providers-tabs"></div>
+                        <div id="provider-content" class="provider-content">
+                            <!-- Sections par fournisseur, rendues par JS -->
+                        </div>
+                    </div>
+                    <div class="models-save-row">
+                        <button type="button" id="apimodeles-cancel-btn" class="models-cancel-btn">Annuler</button>
+                        <button type="button" id="apimodeles-save-btn" class="models-save-btn" disabled>Sauvegarder</button>
+                    </div>
+                </div>
+                <!-- Panel Fonctionnalités -->
+                <div class="apikeys-panel" id="panel-models">
+                    <h3>Fonctionnalités</h3>
+                    <p class="apikey-intro">Choisissez le fournisseur à utiliser pour chaque fonctionnalité.</p>
+                    <div class="apikeys-panel-body">
+                    <div class="audio-setting-row">
+                        <span class="audio-setting-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></span>
+                        <label class="audio-setting-label" for="audio-tts-provider">Synthèse vocale <span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Fournisseur utilisé pour lire les réponses à haute voix.&#10;&#10;Recommandé : Gemini 2.5 Flash TTS, voix très naturelle pour un coût réduit.">?</span></label>
+                        <select id="audio-tts-provider" class="audio-setting-select"></select>
+                    </div>
+                    <div class="audio-setting-row">
+                        <span class="audio-setting-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span>
+                        <label class="audio-setting-label" for="audio-stt-provider">Transcription (micro) <span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Fournisseur utilisé pour transcrire votre voix en texte.&#10;&#10;Recommandé : Voxtral (Mistral), précis, rapide et économique.">?</span></label>
+                        <select id="audio-stt-provider" class="audio-setting-select"></select>
+                    </div>
+                    <div class="audio-setting-row">
+                        <span class="audio-setting-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h.01"/><path d="M17.8 6.2L19 5"/><path d="M11 6.2L9.7 5"/><path d="M11 11.8L9.7 13"/><path d="M2 21l9-9"/></svg></span>
+                        <label class="audio-setting-label" for="enhance-provider">Amélioration de prompts/rôles <span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Modèle utilisé pour améliorer automatiquement vos prompts et rôles.&#10;&#10;Recommandé : un petit ou moyen modèle peut être suffisant. Un modèle plus performant avec raisonnement pourrait être nécessaire pour une meilleure compréhension en cas d'idées décousues.">?</span></label>
+                        <select id="enhance-provider" class="audio-setting-select"></select>
+                    </div>
+                    <div class="audio-setting-row">
+                        <span class="audio-setting-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="10" x2="20" y2="10"/><line x1="4" y1="14" x2="14" y2="14"/><line x1="4" y1="18" x2="10" y2="18"/></svg></span>
+                        <label class="audio-setting-label" for="summary-model">Résumé IA <span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Modèle utilisé pour générer des résumés de conversation. « Modèle utilisé dans la conversation » reprend celui qui y est choisi.&#10;&#10;Recommandé : un modèle moyen avec raisonnement, pour des synthèses fidèles et bien structurées.">?</span></label>
+                        <select id="summary-model" class="audio-setting-select"></select>
+                    </div>
+                    <div class="audio-setting-row">
+                        <span class="audio-setting-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></span>
+                        <label class="audio-setting-label" for="title-model">Génération du titre <span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Modèle utilisé pour générer le titre de la conversation après le premier échange. « Aucun » utilise les premiers mots du message.&#10;&#10;Recommandé : un modèle très petit et très peu coûteux sans raisonnement suffit largement.">?</span></label>
+                        <select id="title-model" class="audio-setting-select"></select>
+                    </div>
+                    <div class="audio-setting-row">
+                        <span class="audio-setting-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+                        <label class="audio-setting-label" for="error-explainer-model">Analyse des erreurs <span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Modèle utilisé pour expliquer les erreurs rencontrées lors des appels API.&#10;&#10;Recommandé : un petit ou moyen modèle rapide, sans raisonnement.">?</span></label>
+                        <select id="error-explainer-model" class="audio-setting-select"></select>
+                    </div>
+                    <div id="local-fallback-row" class="local-fallback-box" style="display:none">
+                        <div class="audio-setting-row">
+                            <label class="audio-setting-label" for="local-fallback-model">Si le modèle local n'est pas disponible <span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Modèle utilisé automatiquement à la place de votre modèle local lorsque celui-ci est injoignable (serveur Ollama ou LM Studio arrêté, modèle non chargé, port fermé, etc.).&#10;&#10;Évite d'avoir à changer manuellement de modèle quand votre instance locale n'est pas en cours d'exécution. Choisir « Aucun » désactive le repli : un message d'erreur s'affichera à la place.">?</span></label>
+                            <select id="local-fallback-model" class="audio-setting-select">
+                                <option value="" disabled selected>Sélectionner le modèle de secours</option>
+                                <option value="none">Aucun</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="models-error" class="models-error" style="display:none"></div>
+                    </div>
+                    <div class="models-save-row">
+                        <button type="button" id="models-cancel-btn" class="models-cancel-btn">Annuler</button>
+                        <button type="button" id="models-save-btn" class="models-save-btn" disabled>Sauvegarder</button>
+                    </div>
+                </div>
+                <!-- Panel Instructions personnalisées -->
+                <div class="apikeys-panel" id="panel-instructions">
+                    <h3>Instructions personnalisées</h3>
+                    <p class="apikey-intro">Ces instructions sont envoyées à l'IA dans toutes vos conversations, en plus du rôle choisi.</p>
+                    <div class="apikeys-panel-body">
+                        <div class="custom-instructions-field">
+                            <textarea id="custom-instructions-textarea" class="sp-modal-textarea custom-instructions-textarea" rows="10" aria-label="Instructions personnalisées" aria-describedby="custom-instructions-count custom-instructions-help" placeholder="Exemples&nbsp;:&#10;Je travaille dans une agence web, surtout sur des sites vitrines.&#10;Réponds en français, de façon concise.&#10;Quand tu proposes du code, privilégie le JavaScript sans framework."></textarea>
+                            <p id="custom-instructions-count" class="custom-instructions-count">0&nbsp;caractère</p>
+                        </div>
+                        <p id="custom-instructions-help" class="custom-instructions-help">Un rôle peut les remplacer&nbsp;: cochez «&nbsp;Écraser les instructions personnalisées&nbsp;» dans ses réglages.</p>
+                    </div>
+                    <div class="models-save-row">
+                        <button type="button" id="instructions-cancel-btn" class="models-cancel-btn">Annuler</button>
+                        <button type="button" id="instructions-save-btn" class="models-save-btn" disabled>Sauvegarder</button>
+                    </div>
+                </div>
+                <!-- Panel Budget -->
+                <div class="apikeys-panel" id="panel-budget">
+                    <h3>Budget</h3>
+                    <p class="apikey-intro">Soyez prévenu quand une réponse ou vos dépenses coûtent cher.</p>
+                    <div class="apikeys-panel-body">
+                    <!-- Alerte de réponse coûteuse, éteinte par défaut (app.js : getCostConfirmThreshold) -->
+                    <section class="budget-card">
+                        <div class="budget-card-head">
+                            <span class="budget-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v2"/><path d="M12 13h.01"/></svg></span>
+                            <span class="budget-card-text">
+                                <label class="budget-card-title" for="budget-confirm-enabled">Alerte de réponse coûteuse</label>
+                                <span class="budget-card-desc">DavidTwentyAI met la réponse en pause et vous demande s'il faut continuer.</span>
+                            </span>
+                            <label class="budget-toggle">
+                                <input type="checkbox" id="budget-confirm-enabled">
+                                <span class="budget-toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="budget-card-body" id="budget-confirm-settings" style="display:none">
+                            <div class="budget-card-row">
+                                <label class="budget-card-label" for="budget-confirm-above">Demander avant de continuer une réponse qui a déjà coûté plus de</label>
+                                <div class="budget-amount-wrapper">
+                                    <span class="budget-amount-prefix">$</span>
+                                    <input type="number" id="budget-confirm-above" class="sp-modal-input budget-field" min="0" step="0.5" placeholder="2">
+                                </div>
+                            </div>
+                            <p class="budget-card-help">Une réponse se fait parfois en plusieurs étapes (lire un fichier, chercher sur le web, reprendre une réponse coupée), et chacune relit toute la conversation. DavidTwentyAI demande entre deux étapes, jamais pendant que l'IA écrit&nbsp;: une seule étape peut donc dépasser ce montant. Il demande aussi avant d'envoyer un message dont la seule lecture coûterait plus.</p>
+                        </div>
+                    </section>
+                    <section class="budget-card">
+                        <div class="budget-card-head">
+                            <span class="budget-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg></span>
+                            <span class="budget-card-text">
+                                <label class="budget-card-title" for="budget-enabled">Alerte de budget</label>
+                                <span class="budget-card-desc">DavidTwentyAI vous prévient quand vos dépenses de la période atteignent un montant.</span>
+                            </span>
+                            <label class="budget-toggle">
+                                <input type="checkbox" id="budget-enabled">
+                                <span class="budget-toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="budget-card-body" id="budget-settings" style="display:none">
+                            <div class="budget-card-row">
+                                <label class="budget-card-label" for="budget-period">Période <span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Fenêtre de temps sur laquelle vos dépenses sont totalisées.&#10;&#10;Jour : aujourd'hui (00h00 à 23h59).&#10;Semaine : du lundi au dimanche en cours.&#10;Mois : du 1er au dernier jour du mois en cours.&#10;&#10;Le compteur repart automatiquement à zéro au début de chaque nouvelle période.">?</span></label>
+                                <select id="budget-period" class="audio-setting-select budget-field">
+                                    <option value="day">Jour</option>
+                                    <option value="week">Semaine</option>
+                                    <option value="month" selected>Mois</option>
+                                </select>
+                            </div>
+                            <div class="budget-card-row">
+                                <label class="budget-card-label" for="budget-amount">Montant max <span class="budget-amount-suffix" id="budget-amount-suffix">/ mois</span></label>
+                                <div class="budget-amount-wrapper">
+                                    <span class="budget-amount-prefix">$</span>
+                                    <input type="number" id="budget-amount" class="sp-modal-input budget-field" min="0" step="0.5" placeholder="10.00">
+                                </div>
+                            </div>
+                            <div id="budget-preview" class="budget-preview" style="display:none">
+                                <p class="budget-preview-label">Consommation période actuelle (<span id="budget-period-label" style="font-weight:400"></span>)</p>
+                                <div class="budget-progress-bar">
+                                    <div class="budget-progress-fill" id="budget-fill"></div>
+                                </div>
+                                <p class="budget-progress-text" id="budget-text"></p>
+                            </div>
+                            <p class="budget-card-help">Lorsque le montant maximum est atteint, une alerte s'affiche pour vous avertir. Vous pouvez la fermer, elle ne reviendra qu'à la période suivante. Aucun blocage n'est appliqué, vous pouvez continuer à utiliser l'application.</p>
+                        </div>
+                    </section>
+                    </div>
+                    <div class="models-save-row">
+                        <button type="button" id="budget-cancel-btn" class="models-cancel-btn">Annuler</button>
+                        <button type="button" id="budget-save-btn" class="models-save-btn" disabled>Sauvegarder</button>
+                    </div>
+                </div>
+                <!-- Panel Apparence -->
+                <div class="apikeys-panel" id="panel-appearance">
+                    <h3>Apparence</h3>
+                    <p class="apikey-intro">Personnalisez l'apparence de l'application.</p>
+                    <div class="apikeys-panel-body">
+                    <div class="audio-setting-row">
+                        <label class="audio-setting-label">Thème</label>
+                        <div class="theme-toggle" id="theme-toggle-panel">
+                            <button class="theme-toggle-btn" data-theme="light">☀ Clair</button>
+                            <button class="theme-toggle-btn" data-theme="dark">☾ Sombre</button>
+                            <button class="theme-toggle-btn" data-theme="auto">◑ Auto</button>
+                        </div>
+                    </div>
+                    <p id="theme-auto-hint" class="apikey-intro" style="display:none;margin-top:8px;font-size:0.75rem;opacity:.7">Le mode automatique permet d'adapter le thème en fonction de celui du système. Certains navigateurs ne sont pas compatibles.</p>
+                    <div class="audio-setting-row wallpaper-row">
+                        <label class="audio-setting-label">Fond d'écran</label>
+                        <div class="wallpaper-grid" id="wallpaper-grid" role="group" aria-label="Fond d'écran">
+                            <span class="wallpaper-group">Dégradés</span>
+                            <button type="button" class="wallpaper-option" data-wallpaper="iris" aria-pressed="false"><span class="wallpaper-swatch" data-wall="iris"></span>Iris</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="lagune" aria-pressed="false"><span class="wallpaper-swatch" data-wall="lagune"></span>Lagune</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="prairie" aria-pressed="false"><span class="wallpaper-swatch" data-wall="prairie"></span>Prairie</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="crepuscule" aria-pressed="false"><span class="wallpaper-swatch" data-wall="crepuscule"></span>Crépuscule</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="sable" aria-pressed="false"><span class="wallpaper-swatch" data-wall="sable"></span>Sable</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="graphite" aria-pressed="false"><span class="wallpaper-swatch" data-wall="graphite"></span>Graphite</button>
+                            <span class="wallpaper-group">Halos</span>
+                            <button type="button" class="wallpaper-option" data-wallpaper="saphir" aria-pressed="false"><span class="wallpaper-swatch" data-wall="saphir"></span>Saphir</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="amethyste" aria-pressed="false"><span class="wallpaper-swatch" data-wall="amethyste"></span>Améthyste</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="rubis" aria-pressed="false"><span class="wallpaper-swatch" data-wall="rubis"></span>Rubis</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="ambre" aria-pressed="false"><span class="wallpaper-swatch" data-wall="ambre"></span>Ambre</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="emeraude" aria-pressed="false"><span class="wallpaper-swatch" data-wall="emeraude"></span>Émeraude</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="turquoise" aria-pressed="false"><span class="wallpaper-swatch" data-wall="turquoise"></span>Turquoise</button>
+                            <span class="wallpaper-group">Unis</span>
+                            <button type="button" class="wallpaper-option" data-wallpaper="noir" aria-pressed="false"><span class="wallpaper-swatch" data-wall="noir"></span>Noir</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="uni" aria-pressed="false"><span class="wallpaper-swatch" data-wall="uni"></span>Perle</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="brume" aria-pressed="false"><span class="wallpaper-swatch" data-wall="brume"></span>Brume</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="sauge" aria-pressed="false"><span class="wallpaper-swatch" data-wall="sauge"></span>Sauge</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="lavande" aria-pressed="false"><span class="wallpaper-swatch" data-wall="lavande"></span>Lavande</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="poudre" aria-pressed="false"><span class="wallpaper-swatch" data-wall="poudre"></span>Poudre</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="lin" aria-pressed="false"><span class="wallpaper-swatch" data-wall="lin"></span>Lin</button>
+                            <span class="wallpaper-group">Vagues</span>
+                            <button type="button" class="wallpaper-option" data-wallpaper="aurore" aria-pressed="false"><span class="wallpaper-swatch" data-wall="aurore"></span>Aurore</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="corail" aria-pressed="false"><span class="wallpaper-swatch" data-wall="corail"></span>Corail</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="menthe" aria-pressed="false"><span class="wallpaper-swatch" data-wall="menthe"></span>Menthe</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="lilas" aria-pressed="false"><span class="wallpaper-swatch" data-wall="lilas"></span>Lilas</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="azur" aria-pressed="false"><span class="wallpaper-swatch" data-wall="azur"></span>Azur</button>
+                            <button type="button" class="wallpaper-option" data-wallpaper="sorbet" aria-pressed="false"><span class="wallpaper-swatch" data-wall="sorbet"></span>Sorbet</button>
+                        </div>
+                    </div>
+                    <div class="audio-setting-row transparency-row">
+                        <label class="audio-setting-label" for="glass-transparency">Transparence</label>
+                        <div class="transparency-control">
+                            <span class="transparency-end" aria-hidden="true">Opaque</span>
+                            <input type="range" id="glass-transparency" class="rp-range transparency-range" min="0" max="100" step="5" value="30">
+                            <span class="transparency-end" aria-hidden="true">Transparent</span>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+                <!-- Panel Statistiques -->
+                <div class="apikeys-panel" id="panel-statistiques">
+                    <h3>Statistiques</h3>
+                    <div class="apikeys-panel-body">
+                    <div class="dashboard-tabs">
+                        <button class="dashboard-tab active" data-tab="periodes">Périodes</button>
+                        <button class="dashboard-tab" data-tab="conversations">Conversations</button>
+                        <button class="dashboard-tab" data-tab="modeles">Modèles</button>
+                        <button class="dashboard-tab" data-tab="editeurs">Éditeurs</button>
+                        <button class="dashboard-tab" data-tab="categories">Catégories</button>
+                    </div>
+                    <div id="dashboard-content" class="dashboard-content"></div>
+                    </div>
+                </div>
+                <!-- Panel Stockage -->
+                <div class="apikeys-panel" id="panel-stockage" data-storage-view="home">
+                    <h3 class="storage-heading">
+                        <button type="button" class="storage-back-btn" id="storage-back-btn" title="Retour" aria-label="Retour">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                        <span class="storage-heading-main">Stockage</span><span class="storage-heading-sep" id="storage-heading-sep"> - </span><span class="storage-heading-sub" id="storage-heading-sub"></span>
+                    </h3>
+                    <div class="apikeys-panel-body">
+
+                    <div class="storage-home" id="storage-home">
+                        <div class="storage-overview" id="storage-overview">
+                            <div class="storage-overview-head">
+                                <span class="storage-overview-label">Espace utilisé</span>
+                                <span class="storage-overview-value" id="storage-total-size">—</span>
+                            </div>
+                            <div class="storage-overview-quota" id="storage-overview-quota" hidden></div>
+                            <div class="storage-overview-bar" id="storage-overview-bar"></div>
+                            <div class="storage-overview-legend" id="storage-overview-legend"></div>
+                        </div>
+                        <p class="storage-home-description">Consultez la taille de chaque conversation et de ses médias, téléchargez ceux que vous voulez conserver, puis supprimez ce dont vous n'avez plus besoin pour libérer de l'espace dans votre navigateur.</p>
+                        <div class="storage-home-actions">
+                            <button type="button" class="storage-home-btn" data-storage-action="conversations">
+                                <span class="storage-home-btn-top">
+                                    <span class="storage-home-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+                                    <span class="storage-home-btn-size" id="storage-size-conv">—</span>
+                                </span>
+                                <span class="storage-home-btn-bottom">
+                                    <span class="storage-home-btn-text">
+                                        <span class="storage-home-btn-title">Conversations</span>
+                                        <span class="storage-home-btn-meta"><span class="storage-meta-count"><span id="storage-count-conv">0 conversation</span></span><span class="storage-meta-loading">Chargement…</span></span>
+                                    </span>
+                                    <span class="storage-home-btn-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+                                </span>
+                            </button>
+                            <button type="button" class="storage-home-btn" data-storage-action="medias">
+                                <span class="storage-home-btn-top">
+                                    <span class="storage-home-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></span>
+                                    <span class="storage-home-btn-size" id="storage-size-media">—</span>
+                                </span>
+                                <span class="storage-home-btn-bottom">
+                                    <span class="storage-home-btn-text">
+                                        <span class="storage-home-btn-title">Médias</span>
+                                        <span class="storage-home-btn-meta"><span class="storage-meta-count"><span id="storage-count-media">0 média</span></span><span class="storage-meta-loading">Chargement…</span></span>
+                                    </span>
+                                    <span class="storage-home-btn-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Vue liste -->
+                    <div class="storage-list-view" id="storage-list-view">
+                    <div class="storage-controls controls-conv search-active" id="storage-controls">
+                        <div class="storage-search-wrap">
+                            <span class="storage-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
+                            <input type="search" id="storage-search" class="storage-search-input" placeholder="Rechercher par titre, contenu, fichier…">
+                        </div>
+                        <button type="button" id="storage-search-btn" class="storage-icon-btn" title="Rechercher">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </button>
+                        <button type="button" id="storage-sort-btn" class="storage-icon-btn" title="Trier">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h13"/><path d="M3 12h9"/><path d="M3 18h5"/><path d="M17 9l3 -3l3 3"/><path d="M20 6v12"/></svg>
+                        </button>
+                        <div class="storage-sort-wrap">
+                            <select id="storage-sort" class="storage-sort-select">
+                                <option value="date">Plus récents</option>
+                                <option value="date-asc">Plus anciens</option>
+                                <option value="size">Plus lourds</option>
+                                <option value="size-asc">Plus légers</option>
+                            </select>
+                        </div>
+                        <div class="storage-filter-group" id="storage-media-filter" style="display:none">
+                            <button type="button" class="storage-filter-chip active" data-mediatype="all">Tous</button>
+                            <button type="button" class="storage-filter-chip" data-mediatype="image">Images</button>
+                            <button type="button" class="storage-filter-chip" data-mediatype="file">Fichiers</button>
+                        </div>
+                        <div class="storage-viewmode-toggle" id="storage-viewmode-toggle" style="display:none" role="group" aria-label="Mode d'affichage">
+                            <button type="button" class="storage-viewmode-btn" data-viewmode="list" title="Vue Liste" aria-label="Vue Liste">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                            </button>
+                            <button type="button" class="storage-viewmode-btn" data-viewmode="grid" title="Vue Grille" aria-label="Vue Grille">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="storage-toolbar">
+                        <label class="storage-master-label"><input type="checkbox" id="storage-select-all"> <span>Tout sélectionner</span></label>
+                        <span class="storage-summary" id="storage-summary">—</span>
+                    </div>
+
+                    <div id="storage-list" class="storage-list"></div>
+
+                    <div class="storage-action-bar" id="storage-action-bar">
+                        <span class="storage-action-info" id="storage-action-info">0 sélectionné</span>
+                        <button type="button" id="storage-clear-btn" class="storage-clear-btn">Désélectionner</button>
+                        <button type="button" id="storage-download-btn" class="storage-download-btn" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Télécharger</button>
+                        <button type="button" id="storage-delete-btn" class="storage-delete-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg> Supprimer</button>
+                    </div>
+                    </div>
+
+                    <div class="storage-loading" id="storage-loading"><div class="storage-spinner"></div></div>
+                    </div>
+                </div>
+                <!-- Panel FAQ -->
+                <div class="apikeys-panel" id="panel-faq">
+                    <h3>Questions fréquentes</h3>
+                    <div class="apikeys-panel-body">
+                    <div id="faq-tabs" class="faq-tabs"></div>
+                    <div id="faq-container" class="faq-container"></div>
+                    </div>
+                </div>
+                <!-- Panel Partager -->
+                <div class="apikeys-panel" id="panel-share">
+                    <h3>Partager DavidTwentyAI</h3>
+                    <div class="apikeys-panel-body">
+                    <div class="share-panel-content">
+                        <div class="share-panel-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                        </div>
+                        <p class="share-panel-text">En partageant DavidTwentyAI autour de vous, vous aidez d'autres personnes à découvrir un outil puissant.</p>
+                        <p class="share-panel-text">Chaque partage compte et aide à maintenir ce projet vivant !</p>
+                        <div class="share-panel-link-box">
+                            <input type="text" id="share-link-input" class="share-link-input" value="https://roxyabi.duckdns.org:8443/harnais/" readonly>
+                            <button id="share-copy-btn" class="share-copy-btn" title="Copier le lien">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                Copier le lien
+                            </button>
+                        </div>
+                        <p class="share-panel-text">Merci à toutes celles et ceux qui partagent DavidTwentyAI autour d'eux 🙏</p>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Apparence en direct : réglages réduits en bas pour choisir en voyant DavidTwentyAI (app.js : openAppearanceDock) -->
+    <div id="appearance-dock" class="appearance-dock" role="region" aria-labelledby="appearance-dock-title" hidden>
+        <div class="appearance-dock-head">
+            <h2 class="appearance-dock-title" id="appearance-dock-title">Réglages de l'apparence</h2>
+            <span class="appearance-dock-group" id="appearance-dock-group" aria-live="polite"></span>
+        </div>
+        <div class="appearance-dock-walls-row">
+            <button type="button" class="appearance-dock-arrow" id="appearance-dock-prev" aria-label="Fonds précédents">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <div class="appearance-dock-walls" id="appearance-dock-walls"></div>
+            <button type="button" class="appearance-dock-arrow" id="appearance-dock-next" aria-label="Fonds suivants">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+        </div>
+        <div class="appearance-dock-glass" id="appearance-dock-glass"></div>
+        <div class="appearance-dock-actions">
+            <button type="button" id="appearance-dock-back" class="storage-preview-btn storage-preview-btn-ghost">Retour</button>
+            <button type="button" id="appearance-dock-done" class="storage-preview-btn storage-preview-btn-primary">Terminé</button>
+        </div>
+    </div>
+
+    <!-- Dock prévisualisation conversation (depuis Stockage) -->
+    <div id="storage-preview-dock" class="storage-preview-dock" style="display:none">
+        <div class="storage-preview-dock-info">
+            <span class="storage-preview-dock-label">Aperçu :</span>
+            <span class="storage-preview-dock-title" id="storage-preview-dock-title">—</span>
+        </div>
+        <div class="storage-preview-dock-actions">
+            <button type="button" id="storage-preview-cancel" class="storage-preview-btn storage-preview-btn-ghost">Annuler</button>
+            <button type="button" id="storage-preview-select" class="storage-preview-btn storage-preview-btn-primary">Sélectionner</button>
+            <button type="button" id="storage-preview-delete" class="storage-preview-btn storage-preview-btn-danger">Supprimer</button>
+        </div>
+    </div>
+
+    <!-- Modale Sauvegarde / Import-Export -->
+    <div id="save-modal-overlay" class="sp-modal-overlay" style="display:none">
+        <div class="sp-modal save-modal" role="dialog" aria-labelledby="save-modal-title">
+            <div class="manage-list-header">
+                <h3 id="save-modal-title" class="sp-modal-head"><span class="sp-modal-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></span>Sauvegarde des données</h3>
+                <button id="save-modal-close" class="cat-manage-close-btn" title="Fermer">&times;</button>
+            </div>
+            <div class="save-modal-warning">
+                <span class="save-modal-warning-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+                <p>Vos conversations et réglages sont stockés dans ce navigateur : <strong>ils disparaissent si vous videz ses données</strong> (cookies, historique). Exportez régulièrement une sauvegarde, vous pourrez la réimporter à tout moment.</p>
+            </div>
+            <div id="save-modal-export-options" hidden>
+            <div class="save-list-label" id="save-list-label">Contenu de la sauvegarde</div>
+            <div class="save-list" role="group" aria-labelledby="save-list-label">
+                <label class="save-list-row is-fixed">
+                    <span class="save-list-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+                    <span class="save-list-text"><strong>Conversations et réglages</strong><small>Rôles, prompts, catégories et préférences</small></span>
+                    <span class="save-list-always">Toujours</span>
+                </label>
+                <label class="save-list-row">
+                    <span class="save-list-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg></span>
+                    <span class="save-list-text"><strong>Fichiers des Artifacts et du Canvas</strong><small>Avec leurs versions</small></span>
+                    <span class="budget-toggle save-switch"><input type="checkbox" id="save-modal-include-files" checked><span class="budget-toggle-slider"></span></span>
+                </label>
+                <label class="save-list-row">
+                    <span class="save-list-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/></svg></span>
+                    <span class="save-list-text"><strong>Images, audios et autres documents</strong><small>Joints aux messages ou créés par l'IA</small></span>
+                    <span class="budget-toggle save-switch"><input type="checkbox" id="save-modal-include-media" checked><span class="budget-toggle-slider"></span></span>
+                </label>
+                <label class="save-list-row is-sensitive">
+                    <span class="save-list-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4"/><path d="m21 2-9.6 9.6"/><circle cx="7.5" cy="15.5" r="5.5"/></svg></span>
+                    <span class="save-list-text"><strong>Clés API</strong><small>Pour vous seul : ne partagez jamais ce fichier</small></span>
+                    <span class="budget-toggle save-switch"><input type="checkbox" id="save-modal-include-keys"><span class="budget-toggle-slider"></span></span>
+                </label>
+            </div>
+            </div>
+            <div class="save-modal-btns">
+                <button id="save-modal-export-btn" class="save-modal-action-btn save-modal-action-btn-primary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <span class="save-modal-btn-content">
+                        <strong>Exporter</strong>
+                        <small>Télécharger une sauvegarde</small>
+                    </span>
+                </button>
+                <button id="save-modal-import-btn" class="save-modal-action-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span class="save-modal-btn-content">
+                        <strong>Importer</strong>
+                        <small>Restaurer une sauvegarde</small>
+                    </span>
+                </button>
+            </div>
+            <div id="save-modal-progress" class="save-modal-progress" role="progressbar" aria-label="Import de la sauvegarde" aria-valuemin="0" aria-valuemax="100" hidden><span></span></div>
+            <button type="button" id="save-modal-back" class="save-modal-back" hidden>Retour</button>
+        </div>
+    </div>
+
+    <!-- Modale Gestion des Rôles -->
+    <div id="roles-manage-overlay" class="sp-modal-overlay" style="display:none">
+        <div class="sp-modal manage-list-modal">
+            <div class="manage-list-header">
+                <h3 class="sp-modal-head"><span class="sp-modal-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg></span>Gestion des rôles</h3>
+                <button id="roles-manage-close" class="cat-manage-close-btn" title="Fermer">&times;</button>
+            </div>
+            <p class="manage-list-intro">Un rôle indique à l'IA comment répondre (métier, style, consignes). Choisissez-le pour une conversation dans « Réglages de la conversation ».</p>
+            <div id="roles-manage-list" class="manage-list-items"></div>
+            <div class="manage-list-empty" id="roles-manage-empty" style="display:none">Aucun rôle enregistré</div>
+            <div class="manage-list-footer">
+                <button id="roles-manage-add" class="cat-manage-add-btn">+ Nouveau rôle</button>
+                <button id="roles-manage-import" class="cat-manage-add-btn cat-manage-add-btn-icon" title="Importer un rôle"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Gestion des Prompts -->
+    <div id="prompts-manage-overlay" class="sp-modal-overlay" style="display:none">
+        <div class="sp-modal manage-list-modal">
+            <div class="manage-list-header">
+                <h3 class="sp-modal-head"><span class="sp-modal-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></span>Prompts enregistrés</h3>
+                <button id="prompts-manage-close" class="cat-manage-close-btn" title="Fermer">&times;</button>
+            </div>
+            <div id="prompts-manage-list" class="manage-list-items"></div>
+            <div class="manage-list-empty" id="prompts-manage-empty" style="display:none">Aucun prompt enregistré</div>
+            <div class="manage-list-footer">
+                <button id="prompts-manage-add" class="cat-manage-add-btn">+ Nouveau prompt</button>
+                <button id="prompts-manage-import" class="cat-manage-add-btn cat-manage-add-btn-icon" title="Importer un prompt"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Importer</button>
+            </div>
+            <input type="file" id="pr-import-file" accept=".json" hidden>
+        </div>
+    </div>
+
+    <!-- Modale Gestion des catégories -->
+    <div id="cat-modal-overlay" class="sp-modal-overlay" style="display:none">
+        <div class="sp-modal cat-manage-modal">
+            <div id="cat-manage-list-view">
+                <div class="cat-manage-header">
+                    <h3 class="sp-modal-head"><span class="sp-modal-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg></span>Gestion des catégories</h3>
+                    <button id="cat-manage-close" class="cat-manage-close-btn" title="Fermer">&times;</button>
+                </div>
+                <div id="cat-manage-list" class="cat-manage-list"></div>
+                <button id="cat-manage-add-btn" class="cat-manage-add-btn">+ Nouvelle catégorie</button>
+            </div>
+            <div id="cat-manage-edit-view" style="display:none">
+                <div class="cat-manage-header">
+                    <div class="sp-modal-head"><span class="sp-modal-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/></svg></span><h3 id="cat-modal-title">Nouvelle catégorie</h3></div>
+                </div>
+                <div class="cat-name-row-labels">
+                    <span class="sp-modal-label cat-label-emoji">Emoji</span>
+                    <span class="sp-modal-label">Nom</span>
+                </div>
+                <div class="cat-name-row">
+                    <div class="emoji-picker-wrapper">
+                        <button type="button" id="cat-modal-icone-btn" class="emoji-picker-btn" title="Choisir un emoji">
+                            <span id="cat-modal-icone-preview">?</span>
+                        </button>
+                        <input type="hidden" id="cat-modal-icone">
+                        <div id="emoji-picker" class="emoji-picker" style="display:none">
+                            <input type="text" id="emoji-search" class="emoji-search" placeholder="Rechercher (ex. : chat, fusée)">
+                            <div id="emoji-tabs" class="emoji-tabs"></div>
+                            <div id="emoji-grid" class="emoji-grid"></div>
+                        </div>
+                    </div>
+                    <input type="text" id="cat-modal-nom" class="sp-modal-input" placeholder="Ex : Travail">
+                </div>
+                <label class="sp-modal-label">Couleur</label>
+                <div id="cat-color-grid" class="cat-color-grid"></div>
+                <div class="sp-modal-actions">
+                    <button id="cat-modal-delete" class="cat-modal-delete-btn" style="display:none">Supprimer</button>
+                    <span class="sp-modal-spacer"></span>
+                    <button id="cat-modal-back" class="sp-modal-btn sp-modal-btn-cancel">&#8249; Retour</button>
+                    <button id="cat-modal-cancel" class="sp-modal-btn sp-modal-btn-cancel" style="display:none">Annuler</button>
+                    <button id="cat-modal-save" class="sp-modal-btn sp-modal-btn-save">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="lightbox-overlay" class="lightbox-overlay" style="display:none">
+        <button id="lightbox-close" class="lightbox-close">&times;</button>
+        <img id="lightbox-img" class="lightbox-img" src="" alt="">
+    </div>
+
+    <div id="file-viewer-overlay" class="lightbox-overlay" style="display:none">
+        <button id="file-viewer-close" class="lightbox-close">&times;</button>
+        <div id="file-viewer-container" class="file-viewer-container">
+            <div id="file-viewer-title" class="file-viewer-title"></div>
+            <iframe id="file-viewer-iframe" class="file-viewer-iframe" sandbox="allow-scripts allow-forms"></iframe>
+        </div>
+    </div>
+
+    <!-- ===== Artifacts et Canvas (un seul volet, data-mode : '' | artifacts | canvas) ===== -->
+    <aside id="canvas-panel" class="canvas-panel" role="complementary" aria-label="Plan de travail" data-mode="" style="display:none">
+        <div id="canvas-resize-handle" class="canvas-resize-handle" title="Redimensionner" aria-hidden="true"></div>
+        <div id="canvas-drop-overlay" class="canvas-drop-overlay" hidden>
+            <div class="canvas-drop-box">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span class="canvas-drop-text" data-for="">Déposez vos fichiers pour les importer</span>
+                <span class="canvas-drop-sub" data-for="">Un document seul (Word, PDF, Markdown) ouvre le Canvas&nbsp;; des fichiers de code, un dossier ou un ZIP, les Artifacts</span>
+                <span class="canvas-drop-text" data-for="artifacts">Déposez vos fichiers pour les importer dans les Artifacts</span>
+                <span class="canvas-drop-sub" data-for="artifacts">Fichiers texte, dossiers ou ZIP</span>
+                <span class="canvas-drop-text" data-for="canvas">Déposez un document pour remplacer le texte du Canvas</span>
+                <span class="canvas-drop-sub" data-for="canvas">Word (.docx), PDF, Markdown, texte ou page web</span>
+                <span class="canvas-drop-blocked">Patientez&nbsp;: l'IA est en train de répondre</span>
+            </div>
+        </div>
+        <div class="canvas-header">
+            <!-- Grand écran : icône de l'espace ouvert (Artifacts ou Canvas), celle du volet s'il est vide -->
+            <button type="button" id="canvas-panel-btn" class="panel-toggle-btn canvas-panel-btn" title="Masquer le plan de travail" aria-label="Masquer le plan de travail" aria-controls="canvas-panel" aria-expanded="true">
+                <svg class="panel-toggle-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                <svg class="canvas-space-icon canvas-space-icon-artifacts" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                <svg class="canvas-space-icon canvas-space-icon-doc" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                <svg class="panel-hide-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+            </button>
+            <div class="canvas-header-title">
+                <svg class="canvas-space-icon canvas-space-icon-artifacts" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                <svg class="canvas-space-icon canvas-space-icon-doc" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                <span class="canvas-header-space">Plan de travail</span>
+                <span class="canvas-header-sep" aria-hidden="true">·</span>
+                <button type="button" id="canvas-doc-title" class="canvas-doc-title">Sans titre</button>
+            </div>
+            <div class="canvas-tabs" role="tablist">
+                <button id="canvas-tab-code" class="canvas-tab active" data-canvas-tab="code" role="tab">Code</button>
+                <button id="canvas-tab-preview" class="canvas-tab" data-canvas-tab="preview" role="tab">Prévisualiser</button>
+            </div>
+            <div class="canvas-header-actions">
+                <button id="canvas-pick-btn" class="canvas-header-btn" title="Sélectionner un élément de la page" aria-pressed="false" style="display:none">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l7.07 17 2.51-7.39L21 11.07z"/></svg>
+                </button>
+                <button id="canvas-refresh-btn" class="canvas-header-btn" title="Actualiser la prévisualisation" style="display:none">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/></svg>
+                </button>
+                <button id="canvas-import-doc-btn" class="canvas-header-btn" title="Importer un document" hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </button>
+                <button id="canvas-download-btn" class="canvas-header-btn" title="Télécharger en ZIP" aria-controls="canvas-download-menu" aria-expanded="false">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <button id="canvas-history-btn" class="canvas-header-btn" title="Historique des versions">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+                </button>
+                <button id="canvas-clear-btn" class="canvas-header-btn canvas-header-btn-danger" title="Vider les Artifacts">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                </button>
+                <button id="canvas-fullscreen-btn" class="canvas-header-btn canvas-fullscreen-btn" title="Plein écran" aria-label="Plein écran" aria-pressed="false">
+                    <svg class="canvas-fs-enter" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                    <svg class="canvas-fs-exit" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                </button>
+                <button id="canvas-close-btn" class="canvas-header-btn" title="Fermer">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div id="canvas-download-menu" class="canvas-download-menu" role="menu" aria-label="Télécharger le texte" hidden>
+                <button type="button" role="menuitem" data-format="md">Markdown <span>.md</span></button>
+                <button type="button" role="menuitem" data-format="html">Page HTML <span>.html</span></button>
+                <button type="button" role="menuitem" data-format="txt">Texte <span>.txt</span></button>
+                <button type="button" role="menuitem" data-format="zip" id="canvas-download-all" hidden>Tous les documents <span>.zip</span></button>
+            </div>
+            <input type="file" id="canvas-doc-import-input" hidden>
+        </div>
+        <div id="canvas-history-bar" class="canvas-history-bar" hidden>
+            <button id="canvas-history-undo" class="canvas-header-btn" title="Version précédente">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></svg>
+                <span>Annuler</span>
+            </button>
+            <button id="canvas-history-redo" class="canvas-header-btn" title="Version suivante">
+                <span>Remettre</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 15-6.7L21 13"/></svg>
+            </button>
+            <span id="canvas-history-position" class="canvas-history-position"></span>
+            <div class="canvas-history-actions">
+                <button id="canvas-history-apply" class="canvas-header-btn canvas-history-apply" title="Garder la version affichée">Appliquer</button>
+                <button id="canvas-history-close" class="canvas-header-btn" title="Fermer sans appliquer">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+        </div>
+        <div id="canvas-code-view" class="canvas-body canvas-tab-view active">
+            <div class="canvas-code-filebar">
+                <button type="button" id="canvas-code-file" class="canvas-preview-file" aria-expanded="false" aria-controls="canvas-sidebar" title="Choisir le fichier">
+                    <span id="canvas-code-file-icon" class="canvas-preview-file-icon" aria-hidden="true"></span>
+                    <span id="canvas-code-file-name" class="canvas-preview-file-name"></span>
+                    <svg class="canvas-preview-file-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+            </div>
+            <div id="canvas-sidebar" class="canvas-sidebar">
+                <div class="canvas-sidebar-label">Fichiers</div>
+                <div class="canvas-sidebar-scroll">
+                    <div id="canvas-file-list" class="canvas-file-list"></div>
+                    <div class="canvas-file-actions">
+                        <button type="button" id="canvas-new-btn" class="canvas-file-action" title="Créer un fichier">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <span>Nouveau</span>
+                        </button>
+                        <button type="button" id="canvas-import-btn" class="canvas-file-action" title="Importer des fichiers, un dossier ou un ZIP" aria-haspopup="menu" aria-controls="canvas-import-menu" aria-expanded="false">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span>Importer</span>
+                        </button>
+                    </div>
+                </div>
+                <input type="file" id="canvas-import-input" multiple hidden>
+                <input type="file" id="canvas-import-dir-input" webkitdirectory multiple hidden>
+                <input type="file" id="canvas-import-zip-input" accept=".zip,application/zip,application/x-zip-compressed" hidden>
+            </div>
+            <div id="canvas-viewer" class="canvas-viewer">
+                <pre id="canvas-viewer-content" class="canvas-viewer-content"></pre>
+            </div>
+            <p id="canvas-code-empty" class="canvas-code-empty" hidden>Donnez un nom au fichier (index.html, style.css…), puis appuyez sur Entrée.</p>
+        </div>
+        <div id="canvas-preview-view" class="canvas-tab-view canvas-preview-view">
+            <div id="canvas-preview-bar" class="canvas-preview-bar" hidden>
+                <button type="button" id="canvas-preview-file" class="canvas-preview-file" aria-haspopup="menu" aria-expanded="false" aria-controls="canvas-preview-menu" title="Choisir le fichier à prévisualiser">
+                    <span id="canvas-preview-file-icon" class="canvas-preview-file-icon" aria-hidden="true"></span>
+                    <span id="canvas-preview-file-name" class="canvas-preview-file-name"></span>
+                    <svg class="canvas-preview-file-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="canvas-preview-menu" class="canvas-preview-menu" role="menu" aria-label="Fichier à prévisualiser" hidden></div>
+            </div>
+            <iframe id="canvas-preview-iframe" class="canvas-preview-iframe" sandbox="allow-scripts allow-forms allow-popups allow-modals allow-pointer-lock allow-downloads allow-popups-to-escape-sandbox" allow="fullscreen; clipboard-write"></iframe>
+            <div id="canvas-pick-menu" class="canvas-pick-menu" role="dialog" aria-label="Élément choisi" hidden>
+                <div class="canvas-pick-head"><code id="canvas-pick-label"></code><span id="canvas-pick-text"></span></div>
+                <div id="canvas-pick-actions" class="canvas-pick-actions">
+                    <button type="button" id="canvas-pick-ask" class="canvas-pick-btn is-primary">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+                        Demander à l'IA
+                    </button>
+                    <button type="button" id="canvas-pick-edit" class="canvas-pick-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+                        Modifier le texte
+                    </button>
+                </div>
+                <form id="canvas-pick-form" class="canvas-pick-form" hidden>
+                    <input id="canvas-pick-input" type="text" placeholder="Que faut-il changer ?" autocomplete="off" aria-label="Demande pour cet élément">
+                    <button type="submit" class="canvas-pick-send" title="Envoyer" aria-label="Envoyer">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                    </button>
+                </form>
+            </div>
+            <div id="canvas-edit-banner" class="canvas-edit-banner" role="status" hidden>
+                <span id="canvas-edit-banner-text"></span>
+                <button type="button" id="canvas-edit-done" class="canvas-edit-done">Terminer</button>
+            </div>
+            <div id="canvas-preview-loading" class="canvas-preview-loading" role="status" aria-label="Chargement de l'aperçu" hidden>
+                <span class="canvas-preview-spinner"></span>
+            </div>
+            <div id="canvas-preview-empty" class="canvas-empty" style="display:none">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.3"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                <p>Rien à prévisualiser : les Artifacts ne contiennent ni page web, ni document, ni image, ni tableau.</p>
+            </div>
+        </div>
+        <div id="canvas-doc-view" class="canvas-tab-view canvas-doc-view">
+            <div class="canvas-viewer-title canvas-doc-bar">
+                <button type="button" id="canvas-doc-tabs-prev" class="canvas-doc-tabs-arrow" title="Onglets précédents" aria-label="Onglets précédents" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg></button>
+                <div id="canvas-doc-tabs" class="canvas-doc-tabs" role="tablist" aria-label="Documents du Canvas" hidden></div>
+                <button type="button" id="canvas-doc-tabs-next" class="canvas-doc-tabs-arrow" title="Onglets suivants" aria-label="Onglets suivants" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg></button>
+                <span class="canvas-doc-bar-end">
+                    <span id="canvas-doc-state" class="canvas-doc-state" aria-live="polite"></span>
+                </span>
+                <div id="canvas-doc-add-menu" class="canvas-download-menu canvas-doc-add-menu" role="menu" aria-label="Ajouter un document" hidden>
+                    <button type="button" role="menuitem" data-add="new">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 12v6"/><path d="M9 15h6"/></svg>
+                        Nouvel onglet
+                    </button>
+                    <button type="button" role="menuitem" data-add="import">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Importer
+                    </button>
+                </div>
+            </div>
+            <div id="canvas-doc-scroll" class="canvas-doc-scroll">
+                <button type="button" id="canvas-copy-btn" class="canvas-doc-copy" title="Copier le texte (mis en forme et en texte brut)" hidden>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><span>Copier</span>
+                </button>
+                <div id="canvas-doc-page" class="canvas-doc-page" lang="fr" spellcheck="true" aria-label="Texte du Canvas" data-placeholder="Commencez à écrire, ou demandez à l'IA de rédiger le texte."></div>
+            </div>
+        </div>
+        <div id="canvas-empty" class="canvas-empty canvas-start">
+            <div class="canvas-start-cards">
+                <section class="canvas-start-card" aria-labelledby="canvas-start-artifacts">
+                    <h3 id="canvas-start-artifacts" class="canvas-start-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                        <span>Artifacts</span>
+                    </h3>
+                    <p class="canvas-start-text">Du code qui s'exécute&nbsp;: page web, application, jeu, outil. Vous le voyez tourner dans Prévisualiser.</p>
+                    <button type="button" class="canvas-start-example" data-prompt="Crée une page web avec un minuteur.">«&nbsp;Crée une page web avec un minuteur.&nbsp;»</button>
+                    <div class="canvas-start-actions">
+                        <button type="button" id="canvas-empty-new-file" class="canvas-start-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <span>Nouveau fichier</span>
+                        </button>
+                        <button type="button" id="canvas-empty-import" class="canvas-start-btn" aria-haspopup="menu" aria-controls="canvas-import-menu" aria-expanded="false">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span>Importer</span>
+                        </button>
+                    </div>
+                </section>
+                <section class="canvas-start-card" aria-labelledby="canvas-start-canvas">
+                    <h3 id="canvas-start-canvas" class="canvas-start-title">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                        <span>Canvas</span>
+                    </h3>
+                    <p class="canvas-start-text">Un texte rédigé à deux&nbsp;: lettre, article, rapport. Vous le modifiez vous-même, ou sélectionnez un passage pour demander une retouche à l'IA.</p>
+                    <button type="button" class="canvas-start-example" data-prompt="Rédige une lettre de motivation pour ">«&nbsp;Rédige une lettre de motivation pour…&nbsp;»</button>
+                    <div class="canvas-start-actions">
+                        <button type="button" id="canvas-empty-new-doc" class="canvas-start-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            <span>Nouveau texte</span>
+                        </button>
+                        <button type="button" id="canvas-empty-import-doc" class="canvas-start-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <span>Importer</span>
+                        </button>
+                    </div>
+                </section>
+            </div>
+            <p class="canvas-start-foot">L'IA choisit selon votre demande. Une conversation n'utilise que l'un des deux.</p>
+        </div>
+        <div id="canvas-console" class="canvas-console" hidden>
+            <div class="canvas-console-bar">
+                <span class="canvas-console-title">Console</span>
+                <span id="canvas-console-page" class="canvas-console-page"></span>
+                <div class="canvas-console-actions">
+                    <button type="button" id="canvas-console-send" class="canvas-header-btn" title="Envoyer la console à l'IA, pour qu'elle corrige les erreurs s'il y en a">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+                        <span>Envoyer à l'IA</span>
+                    </button>
+                    <button type="button" id="canvas-console-clear" class="canvas-header-btn" title="Effacer la console">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>
+                    </button>
+                    <button type="button" id="canvas-console-close" class="canvas-header-btn" title="Fermer la console">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div id="canvas-console-list" class="canvas-console-list" role="log"></div>
+        </div>
+        <div class="canvas-footer">
+            <span id="canvas-status" class="canvas-status"></span>
+            <span id="canvas-diff-code" class="canvas-footer-diff" hidden>
+                <label class="canvas-diff-toggle" title="Surligne en vert les ajouts et en rouge les suppressions par rapport à l'état d'avant la dernière réponse de l'IA">
+                    <input type="checkbox" id="canvas-diff-checkbox">
+                    <span class="canvas-diff-long">Afficher les modifications</span><span class="canvas-diff-short">Modifications</span>
+                </label>
+                <span id="canvas-viewer-readonly" class="canvas-viewer-readonly" hidden>lecture seule</span>
+            </span>
+            <span id="canvas-diff-doc" class="canvas-footer-diff" hidden>
+                <label class="canvas-diff-toggle" title="Surligne en vert les paragraphes ajoutés et en rouge ceux retirés depuis la dernière réponse de l'IA">
+                    <input type="checkbox" id="canvas-doc-diff-checkbox">
+                    <span class="canvas-diff-long">Afficher les modifications</span><span class="canvas-diff-short">Modifications</span>
+                </label>
+                <span id="canvas-doc-readonly" class="canvas-viewer-readonly" hidden>lecture seule</span>
+            </span>
+            <span id="canvas-doc-tip" class="canvas-doc-tip" hidden>Sélectionnez un passage pour le mettre en forme ou demander une retouche à l'IA.</span>
+            <button type="button" id="canvas-console-btn" class="canvas-console-btn" aria-controls="canvas-console" aria-expanded="false" hidden>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                <span>Console</span>
+                <span id="canvas-console-count" class="canvas-console-count" hidden></span>
+            </button>
+        </div>
+        <!-- Importer (Artifacts) : placé sous le bouton qui l'ouvre (liste des fichiers ou carte du volet vide) -->
+        <div id="canvas-import-menu" class="canvas-download-menu canvas-import-menu" role="menu" aria-label="Importer" hidden>
+            <button type="button" role="menuitem" data-import="files">Fichiers… <span>un ou plusieurs</span></button>
+            <button type="button" role="menuitem" data-import="dir">Dossier… <span>et ses sous-dossiers</span></button>
+            <button type="button" role="menuitem" data-import="zip">Archive ZIP… <span>.zip</span></button>
+        </div>
+    </aside>
+    <div id="canvas-peek-tab" class="canvas-peek-tab" title="Ouvrir le plan de travail" hidden>
+        <button type="button" id="canvas-rail-btn" class="panel-toggle-btn canvas-rail-btn" title="Ouvrir le plan de travail" aria-label="Ouvrir le plan de travail" aria-controls="canvas-panel" aria-expanded="false" data-space="">
+            <svg class="panel-toggle-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+            <svg class="canvas-space-icon canvas-space-icon-artifacts" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            <svg class="canvas-space-icon canvas-space-icon-doc" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+            <span class="side-canvas-count"></span>
+        </button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"
+            integrity="sha384-/1qUCSGwTur9vjf/z9lmu/eCUYbpOTgSjmpbMQZ1/CtX2v/WcAIKqRv+U1DUCG6e"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@18.0.2/lib/marked.umd.min.js"
+            integrity="sha384-VFZ9RElp7G/IxAGHV8iq2n2RuDktt4iBszz0AX1jzsKdHQRQoRi3LlUhxx31gpx0"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.4.1/dist/purify.min.js"
+            integrity="sha384-ikETfzsmSTEkyr7smbhW6mdO8o44Zro09Sk1uC9pbG6ZTJA0wK6v37pwx8h+3VRC"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
+            integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG"
+            crossorigin="anonymous"></script>
+    <!-- Clés API préremplies, hors Git (voir config-cles.exemple.js) -->
+    <script src="config-cles.js"></script>
+    <script src="models.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/filemanager.js"></script>
+    <script src="js/faq.js"></script>
+    <script src="images/ee.js"></script>
+    <script src="js/select-menu.js"></script>
+    <script src="js/canvas-doc.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

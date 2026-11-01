@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Aperçu des Artifacts</title>
+<!-- Sans CSP exprès (les Artifacts chargent tout) : iframe sandbox sans allow-same-origin, HTML reçu par postMessage -->
+</head>
+<body>
+<script>
+(function () {
+    window.addEventListener('message', function (ev) {
+        if (ev.source !== window.parent) return;
+        // N'accepter que les messages de DavidTwentyAI (même origine) : un autre site qui intègre la page est ignoré
+        if (ev.origin !== location.origin && location.protocol !== 'file:') return;
+        var data = ev.data;
+        if (!data || data.__davidtwentyaiPreviewHtml !== true || typeof data.html !== 'string') return;
+        document.open();
+        document.write(data.html);
+        document.close();
+    });
+    window.parent.postMessage({ __davidtwentyaiPreviewReady: true, v: location.search }, '*');
+})();
+</script>
+</body>
+</html>
