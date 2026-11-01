@@ -17945,6 +17945,20 @@ if (fileViewerOverlay) {
     });
 }
 
+// --- Hauteur de page = zone visible : sur iPhone, 100vh ignore le clavier et le cache sous lui ---
+(function () {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const fit = () => {
+        document.documentElement.style.setProperty('--app-h', vv.height + 'px');
+        // Safari fait défiler la page pour montrer la saisie : on la ramène, la mise en page suffit
+        if (window.scrollY || vv.offsetTop) window.scrollTo(0, 0);
+    };
+    vv.addEventListener('resize', fit);
+    vv.addEventListener('scroll', fit);
+    fit();
+})();
+
 // --- Lapin posé en permanence sur la zone de saisie (taper "DavidTwentyAI" ne le relance plus) ---
 (function () {
     // Pas sur « mondavidtwentyai » : début de chaîne ou non-lettre juste avant
@@ -17960,13 +17974,14 @@ if (fileViewerOverlay) {
     });
 
     // permanent : ne repart jamais, suit la zone de saisie et cligne de temps en temps
+    const touchScreen = window.matchMedia('(pointer: coarse)').matches;
     function triggerCoucou(permanent = false) {
         easterEggActive = true;
         const wrapper = document.querySelector('.input-wrapper');
         const wrapperRect = wrapper.getBoundingClientRect();
 
         // Hauteurs proportionnelles aux viewBox
-        const charW = 120;
+        const charW = window.innerWidth < 700 ? 56 : 120;
         const bodyH = Math.round(charW * 629 / 620);
         const feetH = Math.round(charW * 119 / 620);
         const centerX = wrapperRect.left + wrapperRect.width / 2;
@@ -18109,7 +18124,11 @@ if (fileViewerOverlay) {
 
         function place() {
             const r = wrapper.getBoundingClientRect();
-            const shown = r.width > 0 && r.height > 0;
+            // Clavier ouvert sur écran tactile (zone visible réduite) : trop peu de place pour le lapin
+            const vv = window.visualViewport;
+            const typing = permanent && touchScreen && document.activeElement === promptInput
+                && !!vv && vv.height < 0.6 * Math.max(screen.width, screen.height);
+            const shown = r.width > 0 && r.height > 0 && !typing;
             mask.style.display = shown ? '' : 'none';
             feet.style.display = shown ? '' : 'none';
             if (!shown) return;
@@ -18128,6 +18147,8 @@ if (fileViewerOverlay) {
             window.visualViewport?.addEventListener('scroll', place);
             window.addEventListener('scroll', place, { passive: true });
             setInterval(place, 300);
+            promptInput.addEventListener('focus', place);
+            promptInput.addEventListener('blur', () => setTimeout(place, 50));
             setInterval(() => {
                 if (hovered) return;
                 body.src = _ec;
