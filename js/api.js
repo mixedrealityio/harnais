@@ -2438,7 +2438,7 @@ async function streamModel(modelId, conversationHistory, onChunk, onDone, onErro
         // Sinon le « Failed to fetch » du navigateur (CORS, serveur éteint) remonterait tel quel
         if (isLocalEditeur(editeur)) {
             const url = API_KEYS[editeur];
-            if (!url) throw new Error(`URL du serveur ${editeur === 'ollama' ? 'Ollama' : 'LM Studio'} requise. Renseignez-la dans Configuration.`);
+            if (!url) throw new Error(`URL du serveur ${editeur === 'ollama' ? 'Ollama' : 'IA locale de Daddy'} requise. Renseignez-la dans Configuration.`);
             const baseUrl = url.replace(/\/+$/, '');
             let pingStatus = 0;
             try {
@@ -2447,7 +2447,7 @@ async function streamModel(modelId, conversationHistory, onChunk, onDone, onErro
                 if (!ping.ok) throw new Error('ping-failed');
             } catch {
                 if (pingStatus === 401 || pingStatus === 403) throw new Error(_localAuthMessage(editeur));
-                throw new Error(`Serveur ${editeur === 'ollama' ? 'Ollama' : 'LM Studio'} injoignable. Vérifiez qu'il soit bien lancé et que CORS est activé (voir Configuration).`);
+                throw new Error(`Serveur ${editeur === 'ollama' ? 'Ollama' : 'IA locale de Daddy'} injoignable. Vérifiez qu'il soit bien lancé et que CORS est activé (voir Configuration).`);
             }
         }
 
@@ -2488,7 +2488,7 @@ async function streamModel(modelId, conversationHistory, onChunk, onDone, onErro
             } catch (netErr) {
                 if (netErr?.name === 'AbortError') throw netErr;
                 if (isLocalEditeur(editeur)) {
-                    throw new Error(`Serveur ${editeur === 'ollama' ? 'Ollama' : 'LM Studio'} injoignable pendant l'envoi du message. Vérifiez qu'il soit toujours lancé et que CORS est activé.`);
+                    throw new Error(`Serveur ${editeur === 'ollama' ? 'Ollama' : 'IA locale de Daddy'} injoignable pendant l'envoi du message. Vérifiez qu'il soit toujours lancé et que CORS est activé.`);
                 }
                 const name = (typeof EDITEUR_LABELS !== 'undefined' && EDITEUR_LABELS[editeur]) || editeur;
                 throw new Error(`Connexion à ${name} impossible. Vérifiez votre connexion réseau, puis réessayez.`);
@@ -3478,7 +3478,7 @@ async function streamText(modelId, prompt, onDelta, opts = {}) {
     }
 
     if (isLocalEditeur(editeur)) {
-        if (!API_KEYS[editeur]) throw new Error(`URL du serveur ${editeur === 'ollama' ? 'Ollama' : 'LM Studio'} requise. Renseignez-la dans Configuration.`);
+        if (!API_KEYS[editeur]) throw new Error(`URL du serveur ${editeur === 'ollama' ? 'Ollama' : 'IA locale de Daddy'} requise. Renseignez-la dans Configuration.`);
     } else {
         const key = API_KEYS[editeur] !== undefined ? editeur : 'openai';
         if (!API_KEYS[key]) throw new Error(`Clé API ${key} requise. Renseignez-la dans Configuration.`);
@@ -3498,7 +3498,7 @@ async function streamText(modelId, prompt, onDelta, opts = {}) {
                 const ping = await fetch(`${baseUrl}/v1/models`, { signal: AbortSignal.timeout(3000) });
                 if (!ping.ok) throw new Error();
             } catch {
-                throw new Error(`Serveur ${editeur === 'ollama' ? 'Ollama' : 'LM Studio'} injoignable. Vérifiez qu'il soit bien lancé.`);
+                throw new Error(`Serveur ${editeur === 'ollama' ? 'Ollama' : 'IA locale de Daddy'} injoignable. Vérifiez qu'il soit bien lancé.`);
             }
         }
         if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');

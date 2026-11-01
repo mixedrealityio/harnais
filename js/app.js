@@ -4509,7 +4509,7 @@ const EDITEUR_LABELS = {
     openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google',
     mistral: 'Mistral', perplexity: 'Perplexity',
     deepseek: 'DeepSeek', grok: 'Grok (xAI)', zai: 'Z.ai (GLM)',
-    openrouter: 'OpenRouter', ollama: 'Ollama', lmstudio: 'LM Studio'
+    openrouter: 'OpenRouter', ollama: 'Ollama', lmstudio: 'IA locale de Daddy'
 };
 // Fournisseurs réels d'OpenRouter (début de l'id « editeur/modele ») ; sinon slug en majuscule initiale
 const OR_MAKER_LABELS = {
@@ -4537,7 +4537,7 @@ const EDITEUR_ICONS = {
     openai: 'OpenAI.svg', anthropic: 'Anthropic.svg', google: 'Google.svg',
     mistral: 'Mistral.svg', perplexity: 'Perplexity.svg',
     deepseek: 'DeepSeek.svg', grok: 'Grok.svg', zai: 'Z.ai.svg',
-    openrouter: 'OpenRouter.svg', ollama: 'Ollama.svg', lmstudio: 'LMStudio.svg'
+    openrouter: 'OpenRouter.svg', ollama: 'Ollama.svg', lmstudio: 'IALocale.svg'
 };
 function _editeurGroupHeaderHtml(editeur) {
     const icon = EDITEUR_ICONS[editeur];
@@ -5293,7 +5293,7 @@ function checkApiKeyForModel(modelId, lookupFn) {
     const editeur = lookupFn(modelId);
     if (editeur && !API_KEYS[editeur]) {
         if (isLocalEditeur(editeur)) {
-            const name = editeur === 'ollama' ? 'Ollama' : 'LM Studio';
+            const name = editeur === 'ollama' ? 'Ollama' : 'IA locale de Daddy';
             showModelAlert(`URL du serveur ${name} manquante. Renseignez-la dans Configuration.`);
         } else {
             showModelAlert(`Clé API ${EDITEUR_LABELS[editeur] || editeur} manquante. Renseignez-la dans Configuration.`);
@@ -6837,7 +6837,7 @@ function compactionBusyReason() {
     const ed = getModelEditeur(model);
     if (ed && !API_KEYS[ed]) {
         return isLocalEditeur(ed)
-            ? `URL du serveur ${ed === 'ollama' ? 'Ollama' : 'LM Studio'} manquante\u00a0: renseignez-la dans Configuration`
+            ? `URL du serveur ${ed === 'ollama' ? 'Ollama' : 'IA locale de Daddy'} manquante\u00a0: renseignez-la dans Configuration`
             : `Clé API ${EDITEUR_LABELS[ed] || ed} manquante\u00a0: renseignez-la dans Configuration`;
     }
     if (!conversationId) return 'Pas assez de messages à résumer';
@@ -7052,7 +7052,7 @@ function planCompaction(modelId, { ctxOverride = 0, allowAlt = true } = {}) {
         }
         const local = getModelEditeur(modelId);
         return { ok: false, reason: `Conversation trop longue pour ${label}\u00a0: choisissez un modèle à plus grand contexte pour la compacter`
-            + (isLocalEditeur(local) ? ` (ou chargez-le avec un plus grand contexte dans ${local === 'ollama' ? 'Ollama' : 'LM Studio'})` : '') };
+            + (isLocalEditeur(local) ? ` (ou chargez-le avec un plus grand contexte dans ${local === 'ollama' ? 'Ollama' : 'IA locale de Daddy'})` : '') };
     }
     let seen = prevTokens;
     const words = slices.map(s => {
@@ -14217,7 +14217,7 @@ const PROVIDERS_CONFIG = [
     { id: 'grok',       label: 'Grok',             icon: 'Grok.svg',       placeholder: 'xai-...',    link: 'https://console.x.ai/',                                      linkLabel: 'Obtenir une clé API Grok' },
     { id: 'zai',        label: 'Z.ai',             icon: 'Z.ai.svg',       placeholder: '...',        link: 'https://z.ai/manage-apikey/apikey-list',                     linkLabel: 'Obtenir une clé API Z.ai' },
     { id: 'ollama',     label: 'Ollama',           icon: 'Ollama.svg',     placeholder: 'http://localhost:11434',                                                                                                      isLocal: true },
-    { id: 'lmstudio',   label: 'LM Studio',        icon: 'LMStudio.svg',   placeholder: 'http://localhost:1234',                                                                                                       isLocal: true }
+    { id: 'lmstudio',   label: 'IA locale de Daddy', icon: 'IALocale.svg',   placeholder: 'http://localhost:1234',                                                                                                       isLocal: true }
 ];
 
 let _activeProvider = 'openrouter';
@@ -14450,7 +14450,7 @@ document.addEventListener('click', (e) => {
 });
 
 function _serviceName(providerId) {
-    return providerId === 'ollama' ? 'Ollama' : 'LM Studio';
+    return providerId === 'ollama' ? 'Ollama' : 'IA locale de Daddy';
 }
 
 function _clearLocalProviderModels(providerId) {
