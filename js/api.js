@@ -16,6 +16,11 @@ let API_KEYS = {
     lmstudio: ''        // URL du serveur, ex. http://localhost:1234
 };
 
+// Serveur local joint par le relais du VPS (/harnais/local) : lui seul sait faire la recherche web
+function isLocalRelay(editeur) {
+    return /\/harnais\/local\/?$/.test(API_KEYS[editeur] || '');
+}
+
 function isLocalEditeur(editeur) {
     return editeur === 'ollama' || editeur === 'lmstudio';
 }
@@ -2280,7 +2285,8 @@ const PROVIDERS = {
         getUrl: () => `${API_KEYS.lmstudio.replace(/\/+$/, '')}/v1/chat/completions`,
         getHeaders: () => ({ 'Content-Type': 'application/json' }),
         formatOptions: { collapseTextOnly: true },
-        bodyExtras: () => ({ stream_options: { include_usage: true } })
+        // Globe : recherche web faite par le relais du serveur (jamais envoyé à un vrai LM Studio)
+        bodyExtras: (modelId, webSearch) => ({ stream_options: { include_usage: true }, ...(webSearch && isLocalRelay('lmstudio') ? { web_search: true } : {}) })
     }),
 
     // --- OpenRouter (texte et images) ---
