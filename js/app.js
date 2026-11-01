@@ -1167,6 +1167,13 @@ const SIDEBAR_WIDTH = { min: 200, max: 440, initial: 240 };
     });
 })();
 
+// Replié avant le premier affichage par index.html (téléphone) : même état qu'un repli automatique
+if (sidebar.dataset.autoCollapsed) {
+    delete sidebar.dataset.autoCollapsed;
+    sidebarAutoCollapsed = true;
+    setSidebarCollapsed(true);
+}
+
 function fitSidebar() {
     const s = layoutSpace();
     const roomy = s.sidebar + s.chatMin + s.rightPref <= s.vw;    // canvas à sa largeur

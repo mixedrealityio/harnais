@@ -104,6 +104,18 @@
     })();
     </script>
     <aside class="sidebar" id="sidebar">
+        <script>
+        // Téléphone : volet replié dès le premier affichage, sinon il pousse la discussion le temps que app.js le replie
+        if (window.innerWidth < 600) {
+            var sb = document.getElementById('sidebar'), mainStyle = document.createElement('style');
+            sb.classList.add('collapsed');
+            sb.dataset.autoCollapsed = '1';
+            // Sans glissement à l'arrivée ; les transitions reviennent une fois la page chargée
+            mainStyle.textContent = '.sidebar, .sidebar *, .main { transition: none !important; }';
+            document.head.appendChild(mainStyle);
+            window.addEventListener('load', function () { setTimeout(function () { mainStyle.remove(); }, 100); });
+        }
+        </script>
         <!-- Double-clic : largeur d'origine (app.js : initSidebarResize) -->
         <div id="sidebar-resize-handle" class="sidebar-resize-handle" title="Glisser pour redimensionner · double-clic : largeur d'origine" aria-hidden="true"></div>
         <!-- Sur grand écran, le volet replié laisse dépasser une bande qui le montre -->
