@@ -2033,8 +2033,8 @@ body:has(#right-panel.collapsed):not(.canvas-active) .chat-container {
     flex: 1;
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    height: var(--app-h, 100dvh);
+    /* Hauteur du contenu de body : tient compte des marges de l'heure et de la barre d'accueil en mode application */
+    height: 100%;
     overflow: hidden;
     position: relative;
     /* Le canvas se rétrécit plutôt que la discussion */
