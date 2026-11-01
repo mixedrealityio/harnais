@@ -13375,3 +13375,36 @@ body.dark .input-wrapper {
 #send-btn .send-icon-stop { display: none; }
 #send-btn.stop-mode .send-icon-send { display: none; }
 #send-btn.stop-mode .send-icon-stop { display: block; }
+
+/* Téléphone : le texte prend la largeur (marges, bulles à 75 % et retraits mangeaient la moitié de l'écran) */
+@media (max-width: 600px) {
+    /* Y compris la réserve de droite pour les boutons flottants (ici en haut de l'écran) */
+    html body .chat-container,
+    html body.design-verre:has(#right-panel.collapsed):not(.canvas-active) .chat-container {
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+    html body .input-area {
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+    body .message-wrapper .message {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    body .message-wrapper .message-assistant {
+        max-width: 100%;
+    }
+    body .message-wrapper .message-user {
+        max-width: 88%;
+    }
+    body .message-wrapper .message ul,
+    body .message-wrapper .message ol {
+        padding-left: 18px;
+    }
+}
+
+/* Le bouton Envoyer devient « Arrêter » pendant la réponse : le micro n'a pas à doubler ce rôle */
+#mic-btn.stop-mode {
+    display: none;
+}
