@@ -17945,7 +17945,7 @@ if (fileViewerOverlay) {
     });
 }
 
-// --- Easter egg : taper "DavidTwentyAI" dans la zone de saisie ---
+// --- Lapin posé en permanence sur la zone de saisie (taper "DavidTwentyAI" ne le relance plus) ---
 (function () {
     // Pas sur « mondavidtwentyai » : début de chaîne ou non-lettre juste avant
     const TRIGGER_RE = /(^|[^\p{L}])davidtwentyai$/u;
@@ -17959,7 +17959,8 @@ if (fileViewerOverlay) {
         }
     });
 
-    function triggerCoucou() {
+    // permanent : ne repart jamais, suit la zone de saisie et cligne de temps en temps
+    function triggerCoucou(permanent = false) {
         easterEggActive = true;
         const wrapper = document.querySelector('.input-wrapper');
         const wrapperRect = wrapper.getBoundingClientRect();
@@ -18081,8 +18082,9 @@ if (fileViewerOverlay) {
         body.addEventListener('touchend', handleLeave);
         body.addEventListener('touchcancel', handleLeave);
 
-        // Redimensionnement : la position figée devient invalide, on sort
+        // Redimensionnement : la position figée devient invalide, on sort (ou on suit, en permanent)
         function onResize() {
+            if (permanent) { place(); return; }
             hovered = false;
             if (reopenTimer) { clearTimeout(reopenTimer); reopenTimer = null; }
             startExit();
@@ -18105,6 +18107,27 @@ if (fileViewerOverlay) {
         `;
         document.body.appendChild(feet);
 
+        function place() {
+            const r = wrapper.getBoundingClientRect();
+            const shown = r.width > 0 && r.height > 0;
+            mask.style.display = shown ? '' : 'none';
+            feet.style.display = shown ? '' : 'none';
+            if (!shown) return;
+            mask.style.left = feet.style.left = (r.left + r.width / 2) + 'px';
+            mask.style.bottom = (window.innerHeight - r.top) + 'px';
+            feet.style.top = (r.top - feetH / 2) + 'px';
+        }
+        if (permanent) {
+            // Volets, Canvas et texte sur plusieurs lignes déplacent la zone sans redimensionner la fenêtre
+            new ResizeObserver(place).observe(wrapper);
+            new ResizeObserver(place).observe(document.body);
+            setInterval(() => {
+                if (hovered) return;
+                body.src = _ec;
+                setTimeout(() => { if (!hovered) body.src = _ea; }, 150);
+            }, 5000);
+        }
+
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 body.style.transform = 'translateY(0)';
@@ -18121,7 +18144,7 @@ if (fileViewerOverlay) {
 
         let exiting = false;
         function startExit() {
-            if (exiting || hovered) return;
+            if (permanent || exiting || hovered) return;
             exiting = true;
             window.removeEventListener('resize', onResize);
             body.src = _ec;
@@ -18139,6 +18162,9 @@ if (fileViewerOverlay) {
             if (!hovered) startExit();
         }, 3300);
     }
+
+    if (document.readyState === 'complete') triggerCoucou(true);
+    else window.addEventListener('load', () => triggerCoucou(true));
 })();
 
 // --- Initialisation du Canvas ---
