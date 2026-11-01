@@ -613,23 +613,25 @@ async function fetchLocalModels(onlyEditeur = null) {
             return;
         }
         try {
+            // Liste des modèles d'un serveur, ou null (injoignable, CORS, page web, liste vide…)
+            const listAt = async (base, ms) => {
+                try {
+                    const r = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(ms) });
+                    if (!r.ok) return null;
+                    const data = await r.json();
+                    const ids = (data.data || data.models || []).map(m => m.id || m.name).filter(Boolean);
+                    return ids.length ? ids : null;
+                } catch (e) { return null; }
+            };
             let baseUrl = url.replace(/\/+$/, '');
-            let response = await fetch(`${baseUrl}/v1/models`, { signal: AbortSignal.timeout(3000) }).catch(() => null);
-            // Adresse enregistrée injoignable (réseau, CORS…) : relais du serveur préréglé (config-cles.js), s'il y en a un
-            const relay = (window.DAVIDTWENTYAI_CLES || {})[ed];
-            if ((!response || !response.ok) && relay && relay.replace(/\/+$/, '') !== baseUrl) {
-                const viaRelay = await fetch(`${relay.replace(/\/+$/, '')}/v1/models`, { signal: AbortSignal.timeout(5000) }).catch(() => null);
-                if (viaRelay && viaRelay.ok) {
-                    API_KEYS[ed] = relay;
-                    baseUrl = relay.replace(/\/+$/, '');
-                    response = viaRelay;
-                }
+            let ids = await listAt(baseUrl, 3000);
+            // Adresse enregistrée sans modèle utilisable : relais du serveur préréglé (config-cles.js), s'il y en a un
+            const relay = ((window.DAVIDTWENTYAI_CLES || {})[ed] || '').replace(/\/+$/, '');
+            if (!ids && relay && relay !== baseUrl) {
+                const viaRelay = await listAt(relay, 5000);
+                if (viaRelay) { API_KEYS[ed] = relay; baseUrl = relay; ids = viaRelay; }
             }
-            if (!response) throw new Error('serveur injoignable');
-            if (!response.ok) return; // serveur joignable mais erreur, on garde le cache
-            const data = await response.json();
-            const models = data.data || data.models || [];
-            const ids = models.map(m => m.id || m.name).filter(Boolean);
+            if (!ids) return; // rien de joignable : on garde le cache
             // Serveur muet sur les outils : ce qu'on en savait reste valable
             const toolIds = await _localToolModels(ed, baseUrl, ids).catch(() => null);
             if (toolIds) cache[ed + 'Tools'] = toolIds;
