@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Connexion · DavidTwentyAI</title>
+    <link rel="icon" type="image/png" href="images/icon-192.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="images/icon-180.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="DavidTwentyAI">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <style>
+        * { box-sizing: border-box; }
+        html, body { margin: 0; height: 100%; background: #000; color: #eee; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex; align-items: center; justify-content: center;
+            padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom);
+        }
+        form { width: 100%; max-width: 340px; display: flex; flex-direction: column; gap: 12px; }
+        img { width: 96px; height: 96px; align-self: center; border-radius: 22px; }
+        h1 { margin: 4px 0 8px; text-align: center; font-size: 1.4rem; }
+        label { font-size: 0.85rem; color: #aaa; }
+        /* 16 px : sous cette taille, l'iPhone zoome sur le champ touché */
+        input {
+            width: 100%; padding: 12px 14px; font-size: 16px; color: #eee;
+            background: #1c1c22; border: 1px solid #333; border-radius: 12px; outline: none;
+        }
+        input:focus { border-color: #F06D13; }
+        button {
+            margin-top: 6px; padding: 13px; font-size: 16px; font-weight: 600; color: #fff;
+            background: #F06D13; border: none; border-radius: 12px; cursor: pointer;
+        }
+        .erreur { display: none; padding: 10px 12px; border-radius: 10px; background: #3b1111; color: #ffb4b4; font-size: 0.9rem; }
+        .erreur.visible { display: block; }
+    </style>
+</head>
+<body>
+    <form method="post" action="login">
+        <img src="images/icon-192.png" alt="">
+        <h1>DavidTwentyAI</h1>
+        <p class="erreur" id="erreur">Identifiant ou mot de passe incorrect.</p>
+        <label for="user">Identifiant</label>
+        <input id="user" name="user" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required>
+        <label for="password">Mot de passe</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+        <button type="submit">Se connecter</button>
+    </form>
+    <script>
+        if (/[?&]erreur=1/.test(location.search)) document.getElementById('erreur').classList.add('visible');
+    </script>
+</body>
+</html>
