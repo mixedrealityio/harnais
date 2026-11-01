@@ -2069,6 +2069,7 @@ body:has(#right-panel.collapsed):not(.canvas-active) .chat-container {
 
 .empty-chat-logo {
     width: 80px;
+    object-fit: contain;
     height: 80px;
 }
 
