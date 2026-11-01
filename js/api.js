@@ -49,6 +49,10 @@ function loadApiKeys() {
     // Clés du serveur (config-cles.js) pour les champs que l'utilisateur n'a pas remplis
     const preset = window.DAVIDTWENTYAI_CLES || {};
     for (const k of Object.keys(API_KEYS)) if (!API_KEYS[k] && preset[k]) API_KEYS[k] = preset[k];
+    // Serveur local en http:// (localhost…) : bloqué depuis une page https, le relais du serveur le remplace
+    for (const k of ['ollama', 'lmstudio']) {
+        if (preset[k] && location.protocol === 'https:' && /^http:\/\//i.test(API_KEYS[k] || '')) API_KEYS[k] = preset[k];
+    }
 }
 
 function saveApiKeys(keys) {
