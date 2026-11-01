@@ -10375,7 +10375,7 @@ let _userHasScrolledUp = false;
 // Colonne redimensionnée (volet ouvert, saisie agrandie) : le texte s'allonge ; qui suivait le bas le suit encore
 if (typeof ResizeObserver === 'function') {
     new ResizeObserver(() => {
-        if (!_userHasScrolledUp) chatContainer.scrollTop = chatContainer.scrollHeight;
+        if (!_userHasScrolledUp && !_chatTouching) chatContainer.scrollTop = chatContainer.scrollHeight;
     }).observe(chatContainer);
 }
 
@@ -10384,6 +10384,12 @@ let _chatScrollIntentAt = 0;
 const _markChatScrollIntent = () => { _chatScrollIntentAt = Date.now(); };
 chatContainer.addEventListener('wheel', _markChatScrollIntent, { passive: true });
 chatContainer.addEventListener('touchmove', _markChatScrollIntent, { passive: true });
+// Doigt posé : aucun retour forcé en bas, sinon chaque morceau de réponse annule le geste (iPhone)
+let _chatTouching = false;
+chatContainer.addEventListener('touchstart', () => { _chatTouching = true; _markChatScrollIntent(); }, { passive: true });
+const _chatTouchEnd = () => { _chatTouching = false; _markChatScrollIntent(); };
+chatContainer.addEventListener('touchend', _chatTouchEnd, { passive: true });
+chatContainer.addEventListener('touchcancel', _chatTouchEnd, { passive: true });
 // Clic n'importe où (barre de défilement tenue, résultat de recherche qui mène à un message) et touches de défilement
 let _chatPointerHeld = false;
 document.addEventListener('pointerdown', () => { _chatPointerHeld = true; _markChatScrollIntent(); }, true);
@@ -10403,7 +10409,9 @@ chatContainer.addEventListener('scroll', () => {
     // Remontée sans geste repéré (recherche dans la page) : aussi l'utilisateur
     const wentUp = top < _chatLastScrollTop - 2;
     _chatLastScrollTop = top;
-    if (atBottom) _userHasScrolledUp = false;
+    // Remontée volontaire, même de quelques pixels : on cesse de suivre le bas
+    if (wentUp && (_chatTouching || Date.now() - _chatScrollIntentAt < 1000)) _userHasScrolledUp = true;
+    else if (atBottom) _userHasScrolledUp = false;
     else if (wentUp || _chatPointerHeld || Date.now() - _chatScrollIntentAt < 1000) _userHasScrolledUp = true;
 });
 
@@ -10536,7 +10544,7 @@ chatContainer.addEventListener('keydown', (e) => {
 });
 
 function scrollToBottom(force) {
-    if (!force && _userHasScrolledUp) return;
+    if (!force && (_userHasScrolledUp || _chatTouching)) return;
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
@@ -17951,6 +17959,7 @@ if (fileViewerOverlay) {
     if (!vv) return;
     const fit = () => {
         document.documentElement.style.setProperty('--app-h', vv.height + 'px');
+        document.documentElement.style.setProperty('--app-top', vv.offsetTop + 'px');
         // Safari fait défiler la page pour montrer la saisie : on la ramène, la mise en page suffit
         if (window.scrollY || vv.offsetTop) window.scrollTo(0, 0);
     };

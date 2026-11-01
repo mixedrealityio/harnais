@@ -13384,6 +13384,21 @@ body.dark .input-wrapper {
         padding-left: 6px;
         padding-right: 6px;
     }
+    /* Page figée : Safari ne peut plus la faire glisser de côté ni la décaler sous le clavier */
+    html {
+        overflow: hidden;
+        height: 100%;
+    }
+    html body {
+        position: fixed;
+        top: var(--app-top, 0);
+        left: 0;
+        width: 100%;
+        overflow: hidden;
+    }
+    html body .main {
+        min-width: 0;
+    }
     html body .input-area {
         padding-left: 6px;
         padding-right: 6px;
