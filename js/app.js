@@ -18251,3 +18251,8 @@ if (/[?&]diag\b/.test(location.search)) {
     show();
     setInterval(show, 500);
 }
+
+// --- Installation comme application (écran d'accueil Android / iPhone) ---
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* sans service de fond, la page marche quand même */ });
+}

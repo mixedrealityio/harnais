@@ -13430,3 +13430,12 @@ body.dark .input-wrapper {
 #mic-btn.stop-mode {
     display: none;
 }
+
+/* Ouverte depuis l'écran d'accueil (sans barres du navigateur) : place pour l'heure en haut et la barre d'accueil en bas */
+@media (display-mode: standalone) {
+    html body {
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+}

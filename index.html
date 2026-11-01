@@ -2,11 +2,19 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="color-scheme" content="light dark">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: blob: data:; script-src 'self' file: 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http://localhost:* http://127.0.0.1:*; font-src 'self' file: data:; media-src 'self' file: data: blob:; connect-src 'self' file: blob: data: https://api.openai.com https://api.anthropic.com https://api.deepseek.com https://api.mistral.ai https://api.perplexity.ai https://api.x.ai https://api.z.ai https://generativelanguage.googleapis.com https://openrouter.ai https://cdn.jsdelivr.net http://localhost:* http://127.0.0.1:*; worker-src 'self' file: blob: https://cdn.jsdelivr.net; frame-src 'self' file: blob: data:; object-src 'none'; base-uri 'self'; form-action 'none';">
     <title>DavidTwentyAI</title>
     <link rel="icon" type="image/png" href="images/DavidTwentyAI.png">
+    <!-- Ajout à l'écran d'accueil : s'ouvre sans les barres du navigateur -->
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="images/icon-180.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="DavidTwentyAI">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
     <link rel="stylesheet" href="css/style.css" id="main-css">
     <link rel="stylesheet" href="css/design-verre.css">
     <script>
