@@ -13413,6 +13413,11 @@ body.dark .input-wrapper {
     body .message-wrapper .message {
         padding-left: 12px;
         padding-right: 12px;
+        font-size: 0.85rem; /* 13,6 px au lieu de 15,2 ; titres et code suivent (em) */
+    }
+    /* 16 px minimum : en dessous, l'iPhone zoome sur la zone de saisie au toucher et décale la page */
+    html body .prompt-input {
+        font-size: 16px;
     }
     body .message-wrapper .message-assistant {
         max-width: 100%;
