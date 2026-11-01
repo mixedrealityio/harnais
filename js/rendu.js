@@ -64,6 +64,7 @@ const MathRender = (function () {
                 window.mermaid.initialize({
                     // Thème clair sur carte blanche : les modèles colorent leurs cases en pensant à un fond clair
                     startOnLoad: false, securityLevel: 'strict', theme: 'default',
+                    themeVariables: { fontSize: '14px', primaryTextColor: '#111', textColor: '#111' },
                     fontFamily: getComputedStyle(document.body).fontFamily,
                 });
                 resolve(window.mermaid);
@@ -74,15 +75,21 @@ const MathRender = (function () {
         return loading;
     }
 
-    // « \n » écrit dans les étiquettes par les modèles : vrai retour à la ligne
-    const clean = code => code.replace(/\\n/g, '<br/>');
+    // « \n » écrit dans les étiquettes par les modèles : vrai retour à la ligne.
+    // Écran étroit : un schéma de gauche à droite est redessiné de haut en bas, pour garder un texte lisible
+    const narrow = () => window.innerWidth < 700;
+    const clean = code => {
+        let c = code.replace(/\\n/g, '<br/>');
+        if (narrow()) c = c.replace(/^(\s*(?:graph|flowchart)\s+)(LR|RL)\b/, '$1TD');
+        return c;
+    };
 
     async function renderBlock(code, pre) {
-        const src = code.textContent;
+        const src = clean(code.textContent);
         let svg = cache.get(src);
         if (!svg) {
             const mermaid = await loadMermaid();
-            const { svg: out } = await mermaid.render('mmd-' + (++counter), clean(src));
+            const { svg: out } = await mermaid.render('mmd-' + (++counter), src);
             svg = out;
             cache.set(src, svg);
         }
@@ -102,6 +109,16 @@ const MathRender = (function () {
         pre.before(fig);
         fig.after(toggle);
         pre.hidden = true;
+        // Réduit pour tenir dans la largeur (jamais agrandi), jusqu'à la moitié de sa taille ; au-delà, la carte défile
+        const el = fig.querySelector('svg');
+        const vb = el && el.viewBox && el.viewBox.baseVal;
+        if (vb && vb.width) {
+            const room = fig.clientWidth - 24;
+            const scale = vb.width > room ? Math.max(0.5, room / vb.width) : 1;
+            el.style.maxWidth = 'none';
+            el.style.width = Math.round(vb.width * scale) + 'px';
+            el.style.height = Math.round(vb.height * scale) + 'px';
+        }
     }
 
     function scan() {

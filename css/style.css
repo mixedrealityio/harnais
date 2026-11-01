@@ -13520,10 +13520,16 @@ body.dark .input-wrapper {
     border-radius: 12px;
     background: #fff;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     text-align: center;
 }
-/* À la largeur de la réponse (Mermaid fixe une largeur maximale trop petite) */
-.mermaid-diagram svg { width: 100%; max-width: 100% !important; height: auto; }
+/* Taille fixée par rendu.js (taille réelle) ; texte noir, même sur les cases colorées par le modèle */
+.mermaid-diagram svg { display: inline-block; }
+.mermaid-diagram :is(.nodeLabel, .edgeLabel, .label, foreignObject div, foreignObject span, foreignObject p) {
+    color: #111 !important;
+    font-weight: 500;
+}
+.mermaid-diagram text { fill: #111 !important; }
 .mermaid-toggle {
     margin: 0 0 10px;
     padding: 2px 8px;
