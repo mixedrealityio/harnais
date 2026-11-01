@@ -390,10 +390,25 @@ async function initConfig() {
         refreshOrCacheSilently().then((ok) => {
             if (!ok) return;
             pruneOrEnabledOrphans();
+            enableFreeOrModelsOnce();
             rebuildModelLists();
             if (typeof populateUnifiedSelect === 'function') populateUnifiedSelect();
         }).catch(() => {});
     }
+}
+
+// Premier passage avec une clé OpenRouter : modèles « :free » cochés d'office (décochables ensuite dans le Catalogue)
+function enableFreeOrModelsOnce() {
+    const FLAG = 'davidtwentyai-or-free-init';
+    try { if (localStorage.getItem(FLAG)) return; } catch (e) { return; }
+    const cache = getOrCache('text');
+    const free = (cache?.models || []).map(m => m.id).filter(id => id.endsWith(':free'));
+    if (!free.length) return;
+    const prefs = loadCatalogPrefs();
+    const orEnabled = new Set(prefs.orEnabled || []);
+    free.forEach(id => orEnabled.add(id));
+    saveCatalogPrefs({ disabled: prefs.disabled || [], orEnabled: [...orEnabled] });
+    try { localStorage.setItem(FLAG, '1'); } catch (e) {}
 }
 
 // Catalogue OpenRouter récupéré sans toucher l'UI du panneau Catalogue (démarrage)
