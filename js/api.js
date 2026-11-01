@@ -613,8 +613,19 @@ async function fetchLocalModels(onlyEditeur = null) {
             return;
         }
         try {
-            const baseUrl = url.replace(/\/+$/, '');
-            const response = await fetch(`${baseUrl}/v1/models`, { signal: AbortSignal.timeout(3000) });
+            let baseUrl = url.replace(/\/+$/, '');
+            let response = await fetch(`${baseUrl}/v1/models`, { signal: AbortSignal.timeout(3000) }).catch(() => null);
+            // Adresse enregistrée injoignable (réseau, CORS…) : relais du serveur préréglé (config-cles.js), s'il y en a un
+            const relay = (window.DAVIDTWENTYAI_CLES || {})[ed];
+            if ((!response || !response.ok) && relay && relay.replace(/\/+$/, '') !== baseUrl) {
+                const viaRelay = await fetch(`${relay.replace(/\/+$/, '')}/v1/models`, { signal: AbortSignal.timeout(5000) }).catch(() => null);
+                if (viaRelay && viaRelay.ok) {
+                    API_KEYS[ed] = relay;
+                    baseUrl = relay.replace(/\/+$/, '');
+                    response = viaRelay;
+                }
+            }
+            if (!response) throw new Error('serveur injoignable');
             if (!response.ok) return; // serveur joignable mais erreur, on garde le cache
             const data = await response.json();
             const models = data.data || data.models || [];
