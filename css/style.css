@@ -13444,3 +13444,69 @@ body.dark .input-wrapper {
         padding-bottom: env(safe-area-inset-bottom);
     }
 }
+
+/* --- Mode Live (conversation vocale) --- */
+.live-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: #000;
+    color: #eee;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(env(safe-area-inset-top) + 40px) 24px calc(env(safe-area-inset-bottom) + 32px);
+}
+.live-overlay[hidden] { display: none; }
+.live-stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    width: 100%;
+    max-width: 520px;
+    text-align: center;
+}
+.live-orb {
+    --level: 0;
+    width: 170px;
+    height: 170px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle, rgba(240, 109, 19, 0.28) 0%, rgba(240, 109, 19, 0.06) 60%, transparent 72%);
+    box-shadow: 0 0 calc(20px + var(--level) * 70px) rgba(240, 109, 19, calc(0.15 + var(--level) * 0.5));
+    transform: scale(calc(1 + var(--level) * 0.12));
+    transition: transform 0.08s linear, box-shadow 0.08s linear;
+    cursor: pointer;
+}
+.live-orb img { width: 110px; height: 110px; object-fit: contain; }
+.live-overlay[data-phase="reflexion"] .live-orb,
+.live-overlay[data-phase="transcription"] .live-orb { animation: live-think 1.2s ease-in-out infinite; }
+.live-overlay[data-phase="parole"] .live-orb { animation: live-talk 0.9s ease-in-out infinite; }
+.live-overlay[data-phase="muet"] .live-orb { opacity: 0.4; }
+@keyframes live-think { 50% { transform: scale(0.94); opacity: 0.7; } }
+@keyframes live-talk { 50% { transform: scale(1.08); box-shadow: 0 0 60px rgba(240, 109, 19, 0.55); } }
+.live-status { margin: 0; font-size: 1.15rem; font-weight: 600; }
+.live-caption { margin: 0; min-height: 2.6em; font-size: 0.95rem; color: #999; line-height: 1.35; }
+.live-controls { display: flex; gap: 28px; }
+.live-controls button {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #fff;
+    background: #2a2a30;
+}
+.live-controls .live-end { background: #d93025; }
+.live-mute .live-mute-slash { display: none; }
+.live-mute[aria-pressed="true"] { background: #eee; color: #000; }
+.live-mute[aria-pressed="true"] .live-mute-slash { display: inline; }
