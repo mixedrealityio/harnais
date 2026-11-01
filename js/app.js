@@ -18113,14 +18113,21 @@ if (fileViewerOverlay) {
             mask.style.display = shown ? '' : 'none';
             feet.style.display = shown ? '' : 'none';
             if (!shown) return;
+            // Par le haut : sur iPhone, innerHeight change avec les barres de Safari et faussait « bottom »
             mask.style.left = feet.style.left = (r.left + r.width / 2) + 'px';
-            mask.style.bottom = (window.innerHeight - r.top) + 'px';
+            mask.style.bottom = 'auto';
+            mask.style.top = (r.top - bodyH) + 'px';
             feet.style.top = (r.top - feetH / 2) + 'px';
         }
         if (permanent) {
             // Volets, Canvas et texte sur plusieurs lignes déplacent la zone sans redimensionner la fenêtre
             new ResizeObserver(place).observe(wrapper);
             new ResizeObserver(place).observe(document.body);
+            // Clavier, barres de Safari et défilement déplacent la zone sans redimensionner quoi que ce soit
+            window.visualViewport?.addEventListener('resize', place);
+            window.visualViewport?.addEventListener('scroll', place);
+            window.addEventListener('scroll', place, { passive: true });
+            setInterval(place, 300);
             setInterval(() => {
                 if (hovered) return;
                 body.src = _ec;
