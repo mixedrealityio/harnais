@@ -18219,3 +18219,28 @@ if (window.Canvas && typeof window.Canvas.init === 'function') {
 // Badge de version (source unique : APP_VERSION)
 document.querySelectorAll('.version-badge').forEach(el => { el.textContent = 'v' + APP_VERSION; });
 
+
+// --- Diagnostic d'affichage : ajouter ?diag à l'adresse pour voir les mesures réelles de l'écran ---
+if (/[?&]diag\b/.test(location.search)) {
+    const box = document.createElement('pre');
+    box.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:99999;margin:0;padding:8px 10px;background:#ffeb3b;color:#000;font:12px/1.35 monospace;border-radius:8px;pointer-events:none;white-space:pre';
+    document.body.appendChild(box);
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:0;visibility:hidden';
+    document.body.appendChild(probe);
+    const r = s => { const e = document.querySelector(s); if (!e) return '-'; const b = e.getBoundingClientRect(); return Math.round(b.left) + '→' + Math.round(b.right); };
+    const show = () => {
+        const vv = window.visualViewport;
+        const cs = getComputedStyle(document.querySelector('.main'));
+        box.textContent = [
+            'version ' + APP_VERSION + ' / diag-1',
+            'écran ' + innerWidth + ' (visible ' + (vv ? Math.round(vv.width) + ' zoom ' + vv.scale.toFixed(2) + ' déc ' + Math.round(vv.offsetLeft) : '?') + ')',
+            '100vw = ' + Math.round(probe.getBoundingClientRect().width) + '  page ' + document.documentElement.scrollWidth + '  défil ' + Math.round(scrollX),
+            'main ' + r('.main') + '  min ' + cs.minWidth,
+            'saisie ' + r('.input-wrapper') + '  bulles ' + r('#chat-container'),
+            'body ' + getComputedStyle(document.body).position,
+        ].join('\n');
+    };
+    show();
+    setInterval(show, 500);
+}
