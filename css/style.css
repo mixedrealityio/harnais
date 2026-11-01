@@ -11458,6 +11458,14 @@ body.dark .canvas-console-entry.is-warn {
         min-width: 0;
         max-width: none;
         height: 100vh;
+        /* Zone visible (clavier compris), sous l'heure et au-dessus de la barre d'accueil en mode application :
+           sinon l'en-tête et sa croix de fermeture passent sous l'heure de l'iPhone */
+        top: var(--app-top, 0);
+        bottom: auto;
+        height: var(--app-h, 100dvh);
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
         z-index: 9200;
         border-left: none;
     }
