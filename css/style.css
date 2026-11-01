@@ -13510,3 +13510,27 @@ body.dark .input-wrapper {
 .live-mute .live-mute-slash { display: none; }
 .live-mute[aria-pressed="true"] { background: #eee; color: #000; }
 .live-mute[aria-pressed="true"] .live-mute-slash { display: inline; }
+
+/* Formules (KaTeX) et schémas (Mermaid) dans les réponses */
+.message-text .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
+.message-text .katex { font-size: 1.08em; }
+.mermaid-diagram {
+    margin: 10px 0 4px;
+    padding: 12px;
+    border-radius: 12px;
+    background: #fff;
+    overflow-x: auto;
+    text-align: center;
+}
+/* À la largeur de la réponse (Mermaid fixe une largeur maximale trop petite) */
+.mermaid-diagram svg { width: 100%; max-width: 100% !important; height: auto; }
+.mermaid-toggle {
+    margin: 0 0 10px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+}

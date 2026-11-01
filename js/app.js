@@ -304,6 +304,8 @@ marked.use({
     hooks: {
         // Anciennes réponses : badge du canvas enregistré dans un bloc ``` (affiché comme du code).
         preprocess(markdown) {
+            // Formules mises de côté avant Markdown, qui mangerait leurs « \ » (rendu.js)
+            if (typeof MathRender !== 'undefined') markdown = MathRender.protect(markdown);
             if (!window.Canvas) return markdown;
             const md = window.Canvas.unfenceMarkers(markdown);
             // Faux repères « [l'assistant a …] » : jamais affichés (DavidTwentyAI relance l'IA pour qu'elle fasse l'appel)
@@ -315,8 +317,11 @@ marked.use({
                 return String(html).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
             }
             _sanitizingAnswer = true;
-            try { return DOMPurify.sanitize(restoreCodeBadges(html), ANSWER_SANITIZE); }
+            let clean;
+            try { clean = DOMPurify.sanitize(restoreCodeBadges(html), ANSWER_SANITIZE); }
             finally { _sanitizingAnswer = false; }
+            // Formules rendues par KaTeX après le nettoyage (KaTeX échappe lui-même le texte)
+            return typeof MathRender !== 'undefined' ? MathRender.restore(clean) : clean;
         }
     }
 });
