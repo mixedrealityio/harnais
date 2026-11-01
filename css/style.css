@@ -13399,6 +13399,13 @@ body.dark .input-wrapper {
     html body .main {
         min-width: 0;
     }
+    /* Pas de languette du volet replié : le bouton en haut à gauche l'ouvre déjà */
+    html body {
+        --sidebar-peek: 0px;
+    }
+    html body .sidebar.collapsed:not(.peek) {
+        visibility: hidden;
+    }
     html body .input-area {
         padding-left: 6px;
         padding-right: 6px;
