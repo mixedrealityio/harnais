@@ -19,11 +19,12 @@
     const END_SILENCE_MS = 1000;    // fin de phrase après 1 s de silence
     const MIN_SPEECH_MS = 350;      // plus court : bruit, ignoré
     const MAX_SPEECH_MS = 60000;
+    const DIAG = /[?&]diag\b/.test(location.search);  // ?diag : niveaux du micro affichés en direct
 
     const state = {
         active: false, phase: 'off', muted: false,
         stream: null, ctx: null, source: null, proc: null, sink: null,
-        floor: 0.01, hits: [], recording: false, chunks: [], preroll: [], lastVoiceAt: 0, speechStart: 0,
+        floor: 0.004, hits: [], blocks: 0, maxRms: 0, micTimer: null, rebuilt: false, recording: false, chunks: [], preroll: [], lastVoiceAt: 0, speechStart: 0,
         assistantEl: null, spokenLen: 0, speakQueue: 0, watch: null, voice: null, wakeLock: null,
     };
 
@@ -99,9 +100,17 @@
         state.stream = await navigator.mediaDevices.getUserMedia({
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
         });
+        if (!state.ctx) newContext();
+        try { await state.ctx.resume(); } catch (e) { /* repris au prochain toucher */ }
+        connectGraph();
+    }
+    // iPhone : le contexte audio doit naître dans le geste de l'utilisateur, avant toute attente
+    function newContext() {
         const Ctx = window.AudioContext || window.webkitAudioContext;
         state.ctx = new Ctx();
-        await state.ctx.resume();
+        try { state.ctx.resume(); } catch (e) {}
+    }
+    function connectGraph() {
         state.source = state.ctx.createMediaStreamSource(state.stream);
         state.proc = state.ctx.createScriptProcessor(BLOCK, 1, 1);
         state.sink = state.ctx.createGain();
@@ -111,7 +120,35 @@
         state.sink.connect(state.ctx.destination);
         state.proc.onaudioprocess = onAudio;
     }
+    function disconnectGraph() {
+        try { state.proc && (state.proc.onaudioprocess = null); } catch (e) {}
+        try { state.source && state.source.disconnect(); state.proc && state.proc.disconnect(); state.sink && state.sink.disconnect(); } catch (e) {}
+    }
+    // Rien reçu ou silence complet : contexte recréé une fois (contourne les blocages de Safari)
+    function micWatchdog() {
+        clearTimeout(state.micTimer);
+        state.micTimer = setTimeout(() => {
+            if (!state.active || !state.stream) return;
+            if (state.blocks === 0 || state.maxRms === 0) {
+                if (!state.rebuilt) {
+                    state.rebuilt = true;
+                    disconnectGraph();
+                    try { state.ctx.close(); } catch (e) {}
+                    newContext();
+                    connectGraph();
+                    micWatchdog();
+                    return;
+                }
+                captionEl.textContent = state.blocks === 0
+                    ? 'Le son du micro n\'arrive pas. Touchez le lapin, ou fermez et rouvrez le mode Live.'
+                    : 'Le micro n\'envoie que du silence. Vérifiez qu\'aucune autre app ne l\'utilise.';
+            } else if (state.maxRms < 0.006) {
+                captionEl.textContent = 'Je vous entends à peine : parlez plus près du téléphone.';
+            }
+        }, 2500);
+    }
     function stopMic() {
+        clearTimeout(state.micTimer);
         try { state.proc && (state.proc.onaudioprocess = null); } catch (e) {}
         try { state.source && state.source.disconnect(); state.proc && state.proc.disconnect(); state.sink && state.sink.disconnect(); } catch (e) {}
         try { state.ctx && state.ctx.close(); } catch (e) {}
@@ -128,8 +165,11 @@
         const now = performance.now();
         const botTalking = state.phase === 'parole' || (window.speechSynthesis && speechSynthesis.speaking);
         // Seuil au-dessus du bruit de fond ; plus haut pendant qu'il parle (écho du haut-parleur)
-        const threshold = botTalking ? Math.max(0.03, state.floor * 5) : Math.max(0.015, state.floor * 3);
-        orb.style.setProperty('--level', Math.min(1, rms * 12).toFixed(3));
+        const threshold = botTalking ? Math.max(0.02, state.floor * 5) : Math.max(0.006, state.floor * 3);
+        orb.style.setProperty('--level', Math.min(1, rms * 15).toFixed(3));
+        state.blocks++;
+        if (rms > state.maxRms) state.maxRms = rms;
+        if (DIAG) captionEl.textContent = `niveau ${rms.toFixed(4)} · seuil ${threshold.toFixed(4)} · fond ${state.floor.toFixed(4)} · ${state.ctx.state} ${state.ctx.sampleRate} Hz · blocs ${state.blocks}`;
 
         if (state.recording) {
             state.chunks.push(data);
@@ -285,6 +325,8 @@
             unlock.volume = 0;
             speechSynthesis.speak(unlock);
         }
+        newContext();
+        state.blocks = 0; state.maxRms = 0; state.rebuilt = false; state.floor = 0.004; state.hits = [];
         overlay.hidden = false;
         document.body.classList.add('live-open');
         captionEl.textContent = '';
@@ -302,6 +344,7 @@
             return;
         }
         setPhase('ecoute');
+        micWatchdog();
         if (originalInstructions === null) {
             originalInstructions = loadCustomInstructions;
             loadCustomInstructions = () => [originalInstructions().trim(), VOICE_INSTRUCTIONS].filter(Boolean).join('\n\n');
@@ -331,7 +374,9 @@
         if (state.phase === 'ecoute' || state.phase === 'capte') setPhase('ecoute');
     });
     // Taper sur le lapin pendant qu'il parle : il se tait et écoute
+    overlay.addEventListener('pointerdown', () => { try { state.ctx && state.ctx.state !== 'running' && state.ctx.resume(); } catch (e) {} });
     orb.addEventListener('click', () => {
+        if (state.ctx && state.ctx.state !== 'running') { state.ctx.resume(); return; }
         if (state.phase === 'parole' || state.phase === 'reflexion') {
             stopSpeaking(); stopWatching();
             if (isStreaming) stopGeneration();
