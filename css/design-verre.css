@@ -244,6 +244,8 @@ body.design-verre[data-wallpaper="graphite"],
 }
 body.design-verre[data-wallpaper="noir"],
 .wallpaper-swatch[data-wall="noir"] { --glass-wall: #000; }
+/* Noir pur : pas de voile teinté par-dessus, même en thème sombre */
+body.design-verre.design-verre[data-wallpaper="noir"] { --glass-veil: transparent; }
 /* Noms de fichiers sans accent (ZIP du Finder décompressé sous Windows) ; Corail : défaut, sans data-wallpaper */
 body.design-verre[data-wallpaper="aurore"],
 .wallpaper-swatch[data-wall="aurore"] { --glass-wall: url("../images/Fonds/1.jpg") center / cover no-repeat; }

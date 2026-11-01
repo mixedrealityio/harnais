@@ -1604,9 +1604,9 @@ body:has(#right-panel.collapsed):not(.canvas-active) .chat-container {
 }
 
 .sidebar-title {
-    font-size: 2.2rem;
+    font-size: 1.4rem;
     font-weight: 700;
-    margin-bottom: 0;
+    margin-bottom: 8px;
     color: var(--text);
     display: flex;
     align-items: center;
@@ -1615,30 +1615,14 @@ body:has(#right-panel.collapsed):not(.canvas-active) .chat-container {
 }
 
 .sidebar-logo {
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
 }
 .version-badge {
     font-size: 0.45em;
     font-weight: 600;
     opacity: 0.5;
     vertical-align: super;
-}
-
-.sidebar-credit {
-    display: block;
-    text-align: center;
-    font-size: 0.65rem;
-    color: var(--text-secondary);
-    text-decoration: none;
-    margin-top: -6px;
-    margin-bottom: 8px;
-    transition: color 0.15s;
-}
-
-.sidebar-credit:hover {
-    color: var(--text);
-    text-decoration: underline;
 }
 
 
