@@ -3105,7 +3105,10 @@ async function ttsSpeak(text, onDone, onError, silent = false, onPlayingStart = 
         try {
             if (!window.speechSynthesis) throw new Error('La synthèse vocale native n\'est pas supportée par ce navigateur.');
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'fr-FR';
+            // Voix choisie dans la Configuration (voix.js)
+            const voice = typeof getSystemVoice === 'function' ? getSystemVoice() : null;
+            utterance.lang = voice?.lang || 'fr-FR';
+            if (voice) utterance.voice = voice;
             utterance.onend = () => onDone(null, text.length);
             utterance.onerror = (e) => {
                 // Une interruption manuelle (cancel) ne doit pas remonter d'erreur

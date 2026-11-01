@@ -25,7 +25,7 @@
         active: false, phase: 'off', muted: false,
         stream: null, ctx: null, source: null, proc: null, sink: null,
         floor: 0.004, hits: [], blocks: 0, maxRms: 0, micTimer: null, rebuilt: false, recording: false, chunks: [], preroll: [], lastVoiceAt: 0, speechStart: 0,
-        assistantEl: null, spokenLen: 0, speakQueue: 0, watch: null, voice: null, wakeLock: null,
+        assistantEl: null, spokenLen: 0, speakQueue: 0, watch: null, wakeLock: null,
     };
 
     // --- Écran Live ---
@@ -66,25 +66,14 @@
         statusEl.textContent = STATUS[overlay.dataset.phase] || '';
     }
 
-    // --- Voix du système (la plus naturelle en français parmi celles installées) ---
-    function pickVoice() {
-        const voices = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
-        const fr = voices.filter(v => /^fr(-|_|$)/i.test(v.lang));
-        const score = v => (/premium|enhanced|amélioré|natural|neural/i.test(v.name) ? 4 : 0)
-            + (/fr[-_]FR/i.test(v.lang) ? 2 : 0) + (/amélie|thomas|audrey|aurélie|google/i.test(v.name) ? 1 : 0);
-        state.voice = fr.sort((a, b) => score(b) - score(a))[0] || null;
-    }
-    if (window.speechSynthesis) {
-        pickVoice();
-        speechSynthesis.addEventListener?.('voiceschanged', pickVoice);
-    }
-
+    // --- Voix : celle choisie dans la Configuration (voix.js) ---
     function speak(text) {
         text = text.replace(/[*_`#>|~]+/g, ' ').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim();
         if (!text || !window.speechSynthesis) return;
         const u = new SpeechSynthesisUtterance(text);
-        u.lang = state.voice?.lang || 'fr-FR';
-        if (state.voice) u.voice = state.voice;
+        const voice = getSystemVoice();
+        u.lang = voice?.lang || 'fr-FR';
+        if (voice) u.voice = voice;
         u.rate = 1.05;
         state.speakQueue++;
         u.onend = u.onerror = () => { state.speakQueue = Math.max(0, state.speakQueue - 1); };

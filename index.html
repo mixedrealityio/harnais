@@ -668,6 +668,12 @@
                         <select id="audio-tts-provider" class="audio-setting-select"></select>
                     </div>
                     <div class="audio-setting-row">
+                        <span class="audio-setting-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg></span>
+                        <label class="audio-setting-label" for="system-voice">Voix de l'appareil <span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Voix utilisée par la synthèse de l'appareil (lecture à voix haute) et par le mode Live.&#10;&#10;La liste dépend de l'ordinateur ou du téléphone : chacun a ses propres voix.">?</span></label>
+                        <select id="system-voice" class="audio-setting-select"></select>
+                        <button type="button" id="system-voice-test" class="prompt-toolbar-btn" title="Écouter cette voix">Écouter</button>
+                    </div>
+                    <div class="audio-setting-row">
                         <span class="audio-setting-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></span>
                         <label class="audio-setting-label" for="audio-stt-provider">Transcription (micro) <span class="rp-hint-btn custom-select-info" tabindex="0" data-tooltip="Fournisseur utilisé pour transcrire votre voix en texte.&#10;&#10;Recommandé : Voxtral (Mistral), précis, rapide et économique.">?</span></label>
                         <select id="audio-stt-provider" class="audio-setting-select"></select>
@@ -1499,6 +1505,7 @@
     <script src="js/canvas-doc.js"></script>
     <script src="js/canvas.js"></script>
     <script src="js/app.js"></script>
+    <script src="js/voix.js"></script>
     <script src="js/live.js"></script>
 </body>
 </html>
