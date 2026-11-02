@@ -35,7 +35,7 @@
         active: false, phase: 'off', muted: false,
         stream: null, ctx: null, source: null, proc: null, sink: null,
         floor: 0.004, hits: [], blocks: 0, maxRms: 0, micTimer: null, rebuilt: false, recording: false, chunks: [], preroll: [], lastVoiceAt: 0, speechStart: 0,
-        assistantEl: null, spokenLen: 0, speakQueue: 0, voiceGen: 0, voiceChain: Promise.resolve(), voiceAbort: null, voiceSources: [], playHead: 0, watch: null, wakeLock: null,
+        assistantEl: null, spokenLen: 0, speakQueue: 0, voiceGen: 0, voiceChain: Promise.resolve(), voiceAbort: null, voiceSources: [], playHead: 0, watch: null, wakeLock: null, earTimer: null, lastBlocks: -1, deafTicks: 0, zeroBlocks: 0, reopening: false,
     };
 
     // --- Écran Live ---
@@ -78,6 +78,8 @@
         // iPhone avec la voix de l'appareil : iOS coupe le micro pendant qu'elle parle, on ne l'interrompt qu'au toucher
         const touchOnly = p === 'parole' && IOS && !useVoxtral();
         statusEl.textContent = STATUS[touchOnly ? 'paroleToucher' : overlay.dataset.phase] || '';
+        // iPhone : après la voix de l'appareil, le contexte audio peut rester « interrupted » (micro sourd)
+        if (p === 'ecoute' && state.ctx && state.ctx.state !== 'running') { try { state.ctx.resume(); } catch (e) {} }
     }
     const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -242,6 +244,45 @@
             }
         }, 2500);
     }
+    // En écoute, le micro doit envoyer des blocs : sinon on relance le contexte, puis on invite à toucher le lapin
+    // (iOS laisse parfois le micro coupé après la voix de l'appareil, et seul un toucher le rétablit)
+    const DEAF_HINT = 'Je ne vous entends plus : touchez le lapin.';
+    function earCheck() {
+        if (!state.active || !state.ctx) return;
+        const listening = (state.phase === 'ecoute' || state.phase === 'capte') && !state.muted;
+        const deaf = listening && (state.blocks === state.lastBlocks || state.ctx.state !== 'running' || micSilent());
+        state.lastBlocks = state.blocks;
+        if (!deaf) {
+            if (captionEl.textContent === DEAF_HINT) captionEl.textContent = '';
+            state.deafTicks = 0;
+            return;
+        }
+        state.deafTicks++;
+        diagLog('micro sourd en écoute (' + state.ctx.state + (micSilent() ? ', silence nul' : '') + '), relance');
+        try { state.ctx.resume(); } catch (e) {}
+        // Contexte reparti mais micro toujours coupé par iOS (son exactement nul) : on le rouvre
+        if (state.deafTicks >= 2 && micSilent()) reopenMic();
+        if (state.deafTicks === 3) captionEl.textContent = DEAF_HINT;
+    }
+    // Piste coupée par le système, ou plus d'une seconde de son exactement nul (un vrai micro n'est jamais à zéro)
+    function micSilent() {
+        const track = state.stream && state.stream.getAudioTracks()[0];
+        return !!(track && (track.muted || track.readyState === 'ended')) || state.zeroBlocks > 20;
+    }
+    async function reopenMic() {
+        if (state.reopening || !state.active) return;
+        state.reopening = true;
+        diagLog('micro rouvert');
+        try {
+            disconnectGraph();
+            try { state.stream && state.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+            state.zeroBlocks = 0;
+            await startMic();
+        } catch (e) {
+            diagLog('réouverture du micro impossible : ' + (e && e.message));
+        }
+        state.reopening = false;
+    }
     function stopMic() {
         clearTimeout(state.micTimer);
         try { state.proc && (state.proc.onaudioprocess = null); } catch (e) {}
@@ -263,6 +304,7 @@
         const threshold = botTalking ? Math.max(0.02, state.floor * 5) : Math.max(0.006, state.floor * 3);
         orb.style.setProperty('--level', Math.min(1, rms * 15).toFixed(3));
         state.blocks++;
+        state.zeroBlocks = rms === 0 ? state.zeroBlocks + 1 : 0;
         if (rms > state.maxRms) state.maxRms = rms;
         if (rms > diagPeak) diagPeak = rms;
         if (DIAG && state.blocks % 5 === 0) {
@@ -452,6 +494,9 @@
         }
         setPhase('ecoute');
         micWatchdog();
+        state.lastBlocks = -1; state.deafTicks = 0;
+        clearInterval(state.earTimer);
+        state.earTimer = setInterval(earCheck, 1000);
         if (originalInstructions === null) {
             originalInstructions = loadCustomInstructions;
             loadCustomInstructions = () => [originalInstructions().trim(), VOICE_INSTRUCTIONS].filter(Boolean).join('\n\n');
@@ -460,6 +505,7 @@
     }
     function close() {
         state.active = false;
+        clearInterval(state.earTimer);
         state.recording = false;
         stopWatching();
         stopSpeaking();
@@ -483,11 +529,14 @@
     // Taper sur le lapin pendant qu'il parle : il se tait et écoute
     overlay.addEventListener('pointerdown', () => { try { state.ctx && state.ctx.state !== 'running' && state.ctx.resume(); } catch (e) {} });
     orb.addEventListener('click', () => {
+        // Dans le geste : iOS accepte de rouvrir le micro qu'il a coupé
+        if (state.phase !== 'parole' && micSilent()) reopenMic();
         if (state.ctx && state.ctx.state !== 'running') { state.ctx.resume(); return; }
         if (state.phase === 'parole' || state.phase === 'reflexion') {
             stopSpeaking(); stopWatching();
             if (isStreaming) stopGeneration();
             setPhase('ecoute');
+            setTimeout(() => { if (micSilent()) reopenMic(); }, 300);   // iOS rend parfois le micro tout seul après la voix
         }
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.active) close(); });
