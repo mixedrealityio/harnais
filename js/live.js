@@ -20,12 +20,22 @@
     const MIN_SPEECH_MS = 350;      // plus court : bruit, ignoré
     const MAX_SPEECH_MS = 60000;
     const DIAG = /[?&]diag\b/.test(location.search);  // ?diag : niveaux du micro affichés en direct
+    // ?diag : mesures aussi envoyées au VPS toutes les 2 s (~/.cache/harnais-diag-live.log), sans avoir à les lire à l'écran
+    const diagLines = [];
+    let diagPeak = 0;
+    function diagLog(msg) {
+        if (DIAG) diagLines.push(new Date().toISOString().slice(11, 23) + ' ' + msg);
+    }
+    if (DIAG) setInterval(() => {
+        if (!diagLines.length) return;
+        fetch('diag-live', { method: 'POST', body: diagLines.splice(0).join('\n'), keepalive: true, credentials: 'same-origin' }).catch(() => {});
+    }, 2000);
 
     const state = {
         active: false, phase: 'off', muted: false,
         stream: null, ctx: null, source: null, proc: null, sink: null,
         floor: 0.004, hits: [], blocks: 0, maxRms: 0, micTimer: null, rebuilt: false, recording: false, chunks: [], preroll: [], lastVoiceAt: 0, speechStart: 0,
-        assistantEl: null, spokenLen: 0, speakQueue: 0, watch: null, wakeLock: null,
+        assistantEl: null, spokenLen: 0, speakQueue: 0, voiceGen: 0, voiceChain: Promise.resolve(), voiceAbort: null, voiceSources: [], playHead: 0, watch: null, wakeLock: null,
     };
 
     // --- Écran Live ---
@@ -58,36 +68,131 @@
         transcription: 'Je réfléchis…',
         reflexion: 'Je réfléchis…',
         parole: 'Parlez pour m\'interrompre',
+        paroleToucher: 'Touchez le lapin pour m\'interrompre',
         muet: 'Micro coupé',
     };
     function setPhase(p) {
+        if (state.phase !== p) diagLog('phase ' + p);
         state.phase = p;
         overlay.dataset.phase = state.muted && p === 'ecoute' ? 'muet' : p;
-        statusEl.textContent = STATUS[overlay.dataset.phase] || '';
+        // iPhone avec la voix de l'appareil : iOS coupe le micro pendant qu'elle parle, on ne l'interrompt qu'au toucher
+        const touchOnly = p === 'parole' && IOS && !useVoxtral();
+        statusEl.textContent = STATUS[touchOnly ? 'paroleToucher' : overlay.dataset.phase] || '';
     }
+    const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-    // --- Voix : celle choisie dans la Configuration (voix.js) ---
+    // --- Voix : Voxtral (Mistral) jouée dans le contexte audio du micro, sinon celle de l'appareil (voix.js) ---
+    // La voix de l'appareil fait couper le micro par iOS pendant qu'elle parle : plus de coupure de parole possible.
+    // Jouée par le site dans le même contexte que le micro, iOS garde le micro ouvert avec l'annulation d'écho.
+    const VOXTRAL_MODEL = 'voxtral-mini-tts-3-0';
+    const VOXTRAL_VOICE = 'voice_592';   // Marie, comme la lecture à voix haute
+    const VOXTRAL_LIVE = false;   // désactivé le temps d'essayer la voix de l'appareil avec interruption au toucher
+    function useVoxtral() { return VOXTRAL_LIVE && !!(typeof API_KEYS !== 'undefined' && API_KEYS.mistral); }
     function speak(text) {
         text = text.replace(/[*_`#>|~]+/g, ' ').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim();
-        if (!text || !window.speechSynthesis) return;
+        if (!text) return;
+        if (useVoxtral() && state.ctx) return speakVoxtral(text);
+        if (!window.speechSynthesis) return;
         const u = new SpeechSynthesisUtterance(text);
         const voice = getSystemVoice();
         u.lang = voice?.lang || 'fr-FR';
         if (voice) u.voice = voice;
         u.rate = 1.05;
         state.speakQueue++;
-        u.onend = u.onerror = () => { state.speakQueue = Math.max(0, state.speakQueue - 1); };
+        diagLog('voix demandée : ' + text.slice(0, 50));
+        u.onstart = () => diagLog('voix commence');
+        u.onend = u.onerror = (e) => { diagLog('voix ' + e.type + (e.error ? ' ' + e.error : '')); state.speakQueue = Math.max(0, state.speakQueue - 1); };
+        // iPhone : une lecture restée bloquée (déverrouillage à l'ouverture) retient toute la file, on la vide d'abord
+        if (state.speakQueue === 1 && (speechSynthesis.speaking || speechSynthesis.pending)) {
+            diagLog('voix bloquée vidée');
+            speechSynthesis.cancel();
+            setTimeout(() => speechSynthesis.speak(u), 100);   // parler juste après cancel est parfois ignoré
+            return;
+        }
         speechSynthesis.speak(u);
     }
+    // Phrases lues dans l'ordre : chacune est demandée en flux et ses morceaux sont calés à la suite sur playHead
+    function speakVoxtral(text) {
+        state.speakQueue++;
+        diagLog('voix Voxtral demandée : ' + text.slice(0, 50));
+        const gen = state.voiceGen;
+        state.voiceChain = state.voiceChain.then(() => gen === state.voiceGen && streamVoxtral(text, gen)).catch((err) => {
+            diagLog('voix Voxtral erreur : ' + (err && err.message ? err.message.slice(0, 160) : err));
+            if (gen === state.voiceGen) captionEl.textContent = 'Voix Mistral indisponible : ' + (err && err.message ? err.message.slice(0, 100) : err);
+        }).finally(() => {
+            // La phrase compte comme lue quand son dernier morceau a fini de jouer
+            const left = state.ctx ? Math.max(0, state.playHead - state.ctx.currentTime) : 0;
+            setTimeout(() => { if (gen === state.voiceGen) state.speakQueue = Math.max(0, state.speakQueue - 1); }, left * 1000 + 50);
+        });
+    }
+    async function streamVoxtral(text, gen) {
+        const abort = new AbortController();
+        state.voiceAbort = abort;
+        const response = await fetch('https://api.mistral.ai/v1/audio/speech', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEYS.mistral}` },
+            body: JSON.stringify({ model: VOXTRAL_MODEL, input: text, response_format: 'pcm', voice_id: VOXTRAL_VOICE, stream: true }),
+            signal: abort.signal
+        });
+        if (!response.ok) throw new Error(`Mistral ${response.status} : ${(await response.text()).slice(0, 200)}`);
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '', first = true;
+        while (gen === state.voiceGen) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines) {
+                if (!line.startsWith('data: ') || gen !== state.voiceGen) continue;
+                let evt;
+                try { evt = JSON.parse(line.slice(6).trim()); } catch (e) { continue; }
+                if (!evt.audio_data) continue;
+                // PCM float 32 bits, 24 kHz, mono
+                const raw = atob(evt.audio_data);
+                const bytes = new Uint8Array(raw.length);
+                for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+                const samples = new Float32Array(bytes.buffer, 0, Math.floor(bytes.length / 4));
+                if (!samples.length || !state.ctx) continue;
+                const abuf = state.ctx.createBuffer(1, samples.length, 24000);
+                abuf.getChannelData(0).set(samples);
+                const src = state.ctx.createBufferSource();
+                src.buffer = abuf;
+                src.connect(state.ctx.destination);
+                const when = Math.max(state.playHead, state.ctx.currentTime + 0.05);
+                src.start(when);
+                state.voiceSources.push(src);
+                src.onended = () => { state.voiceSources = state.voiceSources.filter(x => x !== src); };
+                state.playHead = when + abuf.duration;
+                if (first) { first = false; diagLog('voix Voxtral commence'); }
+            }
+        }
+        try { reader.cancel(); } catch (e) {}
+    }
     function stopSpeaking() {
+        diagLog('voix arrêtée');
         state.speakQueue = 0;
-        try { speechSynthesis.cancel(); } catch (e) { /* rien à arrêter */ }
+        // Voxtral : flux abandonnés, morceaux déjà calés arrêtés
+        state.voiceGen++;
+        state.voiceChain = Promise.resolve();
+        try { state.voiceAbort && state.voiceAbort.abort(); } catch (e) {}
+        for (const src of state.voiceSources) { try { src.stop(); } catch (e) {} }
+        state.voiceSources = [];
+        state.playHead = 0;
+        try { window.speechSynthesis && speechSynthesis.cancel(); } catch (e) { /* rien à arrêter */ }
     }
 
     // --- Micro et détection de voix ---
     async function startMic() {
         state.stream = await navigator.mediaDevices.getUserMedia({
             audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 }
+        });
+        if (DIAG) state.stream.getTracks().forEach(t => {
+            diagLog('micro ' + t.label + ' ' + t.readyState + (t.muted ? ' muet' : ''));
+            t.onmute = () => diagLog('micro MUET (coupé par le système)');
+            t.onunmute = () => diagLog('micro rétabli');
+            t.onended = () => diagLog('micro TERMINÉ');
         });
         if (!state.ctx) newContext();
         try { await state.ctx.resume(); } catch (e) { /* repris au prochain toucher */ }
@@ -97,6 +202,7 @@
     function newContext() {
         const Ctx = window.AudioContext || window.webkitAudioContext;
         state.ctx = new Ctx();
+        if (DIAG) { diagLog('contexte audio ' + state.ctx.state); state.ctx.onstatechange = (e) => diagLog('contexte audio ' + e.target.state); }
         try { state.ctx.resume(); } catch (e) {}
     }
     function connectGraph() {
@@ -152,12 +258,17 @@
         for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
         const rms = Math.sqrt(sum / data.length);
         const now = performance.now();
-        const botTalking = state.phase === 'parole' || (window.speechSynthesis && speechSynthesis.speaking);
+        const botTalking = state.phase === 'parole' || state.speakQueue > 0;  // speechSynthesis.speaking peut rester vrai à tort sur iPhone
         // Seuil au-dessus du bruit de fond ; plus haut pendant qu'il parle (écho du haut-parleur)
         const threshold = botTalking ? Math.max(0.02, state.floor * 5) : Math.max(0.006, state.floor * 3);
         orb.style.setProperty('--level', Math.min(1, rms * 15).toFixed(3));
         state.blocks++;
         if (rms > state.maxRms) state.maxRms = rms;
+        if (rms > diagPeak) diagPeak = rms;
+        if (DIAG && state.blocks % 5 === 0) {
+            diagLog(`blocs ${state.blocks} · pic ${diagPeak.toFixed(4)} · seuil ${threshold.toFixed(4)} · fond ${state.floor.toFixed(4)} · ${botTalking ? 'IA parle' : 'IA muette'} · ${state.phase} · touches ${state.hits.reduce((a, b) => a + b, 0)} · ${state.ctx.state}`);
+            diagPeak = 0;
+        }
         if (DIAG) captionEl.textContent = `niveau ${rms.toFixed(4)} · seuil ${threshold.toFixed(4)} · fond ${state.floor.toFixed(4)} · ${state.ctx.state} ${state.ctx.sampleRate} Hz · blocs ${state.blocks}`;
 
         if (state.recording) {
@@ -181,6 +292,7 @@
     }
 
     function startUtterance(now) {
+        diagLog('début de parole détecté (phase ' + state.phase + ')');
         // Coupure de parole : il se tait et abandonne sa réponse en cours
         if (state.phase === 'parole' || state.phase === 'reflexion') {
             stopSpeaking();
@@ -202,11 +314,13 @@
         state.chunks = [];
         const rate = state.ctx ? state.ctx.sampleRate : 48000;
         const ms = chunks.length * BLOCK / rate * 1000;
+        diagLog('fin de parole : ' + Math.round(ms) + ' ms enregistrées');
         if (ms < MIN_SPEECH_MS + PREROLL_BLOCKS * BLOCK / rate * 1000) { setPhase('ecoute'); return; }
         setPhase('transcription');
         transcribeAudio(toWav(chunks, rate), (text) => {
             if (!state.active) return;
             text = (text || '').trim();
+            diagLog('transcription : « ' + text.slice(0, 80) + ' »');
             if (!text) { setPhase('ecoute'); return; }
             captionEl.textContent = '« ' + text + ' »';
             send(text);
@@ -290,7 +404,8 @@
                 setPhase('parole');
             }
             state.spokenLen += m.length;
-            if (done && state.speakQueue === 0 && !speechSynthesis.speaking && !speechSynthesis.pending) {
+            const deviceTalking = !useVoxtral() && window.speechSynthesis && (speechSynthesis.speaking || speechSynthesis.pending);
+            if (done && state.speakQueue === 0 && !deviceTalking) {
                 stopWatching();
                 setPhase('ecoute');
             }
@@ -309,11 +424,14 @@
             return;
         }
         // Dans le geste de l'utilisateur : déverrouille la synthèse vocale (iPhone)
-        if (window.speechSynthesis) {
-            const unlock = new SpeechSynthesisUtterance(' ');
+        if (window.speechSynthesis && !useVoxtral()) {
+            // Un texte réel : une phrase vide ne se termine jamais sur iPhone et bloque la voix
+            const unlock = new SpeechSynthesisUtterance('ok');
             unlock.volume = 0;
+            unlock.rate = 2;
             speechSynthesis.speak(unlock);
         }
+        diagLog('--- ouverture Live · ' + navigator.userAgent);
         newContext();
         state.blocks = 0; state.maxRms = 0; state.rebuilt = false; state.floor = 0.004; state.hits = [];
         overlay.hidden = false;
