@@ -13,16 +13,19 @@
   <canvas id="face" aria-label="Avatar"></canvas>
   <div id="status" aria-live="polite"></div>
   <div id="caption"><p id="cap-user"></p><p id="cap-bot"></p></div>
+  <pre id="diag" hidden></pre>
   <div id="controls">
     <button id="start" class="primary">Commencer la conversation</button>
     <button id="mute" hidden aria-pressed="false">Couper le micro</button>
     <button id="cut" hidden>Interrompre</button>
     <button id="stop" hidden>Terminer</button>
+    <button id="head">Tête</button>
   </div>
   <p id="note">Parlez naturellement : Marie vous écoute pendant qu'elle parle, vous pouvez l'interrompre à tout moment.</p>
 </main>
 <script src="../config-cles.js"></script>
 <script src="face.js"></script>
+<script src="rabbit.js"></script>
 <script src="avatar.js"></script>
 </body>
 </html>

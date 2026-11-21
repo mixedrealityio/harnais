@@ -20,22 +20,49 @@
     const BC_PAUSE_MIN = 380, BC_PAUSE_MAX = 620;
     const BC_GAP_MS = 7000;
     const HISTORY_MAX = 24;
-    const BACKCHANNELS = ['Hm.', 'D\'accord.', 'Je vois.', 'Oui.', 'Ah oui.'];
+    const BACKCHANNELS = ['Hm.', 'D\'accord.', 'Je vois.'];
 
     const SYSTEM_PROMPT = [
         'Tu es Marie, une interlocutrice vocale chaleureuse et naturelle. Tu parles français, à l\'oral, en face à face avec une personne.',
         'Réponds en une à trois phrases courtes, comme dans une vraie conversation : pas de liste, pas de markdown, pas d\'emoji, pas de symbole.',
         'Écris tout ce qui se dit à voix haute en toutes lettres : « onze à douze degrés », « vingt-trois pour cent ».',
         'Tu peux réagir brièvement (« ah oui ? », « d\'accord ») et poser une question de relance, mais jamais plusieurs à la fois.',
-        'Si la personne t\'a interrompue, reprends simplement avec ce qu\'elle vient de dire. Tu n\'as pas accès à Internet : dis-le si on te demande une information récente.'
+        'Si la personne t\'a interrompue, reprends simplement avec ce qu\'elle vient de dire. Quand des résultats de recherche web te sont fournis, appuie-toi dessus en une ou deux phrases : ne lis jamais d\'adresse, de numéro de source ni de liste de liens, cite au besoin le nom du site. Sans résultats fournis, tu n\'as pas accès à Internet : dis-le si on te demande une information récente.'
     ].join(' ');
 
     // ---------- Éléments ----------
     const $ = (id) => document.getElementById(id);
     const el = { face: $('face'), status: $('status'), capUser: $('cap-user'), capBot: $('cap-bot'),
-        start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
-    const face = window.AvatarFace(el.face);
+        head: $('head'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
+    const HEADS = { lapin: window.AvatarRabbit, marie: window.AvatarFace };
+    const HEAD_LABEL = { lapin: 'Tête : lapin', marie: 'Tête : Marie' };
+    let headName = (function () { try { return localStorage.getItem('avatar-tete') || 'lapin'; } catch (e) { return 'lapin'; } })();
+    if (!HEADS[headName]) headName = 'lapin';
+    let face = HEADS[headName](el.face);
+    el.head.textContent = HEAD_LABEL[headName];
+    el.head.addEventListener('click', () => {
+        headName = headName === 'lapin' ? 'marie' : 'lapin';
+        try { localStorage.setItem('avatar-tete', headName); } catch (e) { /* stockage indisponible */ }
+        face.stop(); face = HEADS[headName](el.face);
+        face.setState(S.state === 'transcribing' ? 'thinking' : S.state);
+        el.head.textContent = HEAD_LABEL[headName];
+    });
     const STATUS = { idle: '', user: 'Je vous écoute', transcribing: '…', thinking: 'Je réfléchis', speaking: 'Marie parle' };
+
+    // ---------- Mode ?diag : journal envoyé au VPS (~/.cache/harnais-diag-live.log) et affiché à l'écran ----------
+    const DIAG = /[?&]diag\b/.test(location.search);
+    const diagLines = [];
+    function diagLog(msg) {
+        if (!DIAG) return;
+        const line = new Date().toISOString().slice(11, 23) + ' [avatar] ' + msg;
+        diagLines.push(line);
+        el.diag.hidden = false;
+        el.diag.textContent = (el.diag.textContent + '\n' + line.slice(0, 120)).split('\n').slice(-9).join('\n');
+    }
+    if (DIAG) setInterval(() => {
+        if (!diagLines.length) return;
+        fetch('../diag-live', { method: 'POST', body: diagLines.splice(0).join('\n'), keepalive: true, credentials: 'same-origin' }).catch(() => {});
+    }, 2000);
 
     // ---------- Clé Mistral ----------
     function mistralKey() {
@@ -54,6 +81,7 @@
     };
 
     function setState(st) {
+        if (S.state !== st) diagLog('état ' + st);
         S.state = st;
         face.setState(st === 'transcribing' ? 'thinking' : st);
         el.status.textContent = S.muted && st === 'idle' ? 'Micro coupé' : (STATUS[st] || '');
@@ -147,6 +175,7 @@
             text = (text || '').replace(/\s+/g, ' ').trim();
             // Bruit ou souffle : rien à répondre
             if (text.replace(/[^\p{L}\p{N}]/gu, '').length < 3) { setState('idle'); return; }
+            diagLog('transcription : « ' + text.slice(0, 80) + ' »');
             el.capUser.textContent = '« ' + text + ' »';
             say(text);
         }).catch((err) => {
@@ -181,11 +210,15 @@
 
     // ---------- Mistral : appels avec nouvelle tentative sur 429 ----------
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-    async function mistral(path, init, tries = 3) {
+    async function mistral(path, init, tries = 4, base = 'https://api.mistral.ai') {
         for (let i = 0; ; i++) {
-            const res = await fetch('https://api.mistral.ai' + path, init);
+            const t0 = performance.now();
+            const res = await fetch(base + path, init);
+            diagLog(`${path} → ${res.status} en ${Math.round(performance.now() - t0)} ms` + (i ? ` (essai ${i + 1})` : ''));
             if (res.status !== 429 || i >= tries - 1 || (init.signal && init.signal.aborted)) return res;
-            await sleep(1200 * (i + 1));
+            const wait = Math.min(8000, (Number(res.headers.get('retry-after')) || 0) * 1000 || 1500 * (i + 1));
+            diagLog('429 : nouvelle tentative dans ' + wait + ' ms');
+            await sleep(wait);
         }
     }
     async function transcribe(blob) {
@@ -205,6 +238,10 @@
             .replace(/[*_`#>|~]+/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
+    // Questions d'actualité, de météo, de prix, de résultats… ou demande explicite de chercher
+    const WEB_RE = /\b(météo|temps qu.il fait|il fait (combien|quel)|actualit|actu\b|infos?\b|nouvelles?\b|aujourd.hui|ce (matin|soir)|en ce moment|dernier(e|s)?\b|récent|cette semaine|hier|demain|score|résultat|match|classement|cours (de|du)|bourse|prix|combien (coûte|ça coûte|vaut)|horaires?|ouvert|élections?|président|premier ministre|cherche|recherche|sur (internet|le web)|trouve)/i;
+    function needsWeb(text) { return WEB_RE.test(text); }
+
     async function say(userText) {
         const gen = ++S.gen;
         S.history.push({ role: 'user', content: userText });
@@ -214,13 +251,16 @@
         setState('thinking');
         const abort = new AbortController();
         S.llmAbort = abort;
+        // Recherche web (Tavily, par le relais du serveur) seulement quand la question en a besoin
+        const web = needsWeb(userText);
+        if (web) { diagLog('recherche web'); el.capBot.textContent = 'Je cherche sur le web…'; }
         try {
-            const res = await mistral('/v1/chat/completions', {
+            const res = await mistral(web ? '/mistral/v1/chat/completions' : '/v1/chat/completions', {
                 method: 'POST', signal: abort.signal,
                 headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + mistralKey() },
-                body: JSON.stringify({ model: CHAT_MODEL, stream: true, max_tokens: 220, temperature: 0.7,
+                body: JSON.stringify({ model: CHAT_MODEL, stream: true, max_tokens: 220, temperature: 0.7, ...(web ? { web_search: true, web_voice: true } : {}),
                     messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...S.history] })
-            });
+            }, 4, web ? '..' : 'https://api.mistral.ai');
             if (!res.ok) throw new Error('Mistral ' + res.status + (res.status === 429 ? ' : limite de requêtes, patientez un instant' : ''));
             const reader = res.body.getReader();
             const dec = new TextDecoder();
@@ -244,8 +284,10 @@
             S.llmDone = true;
             S.history.push({ role: 'assistant', content: S.botText.trim() || '…' });
             watchEnd(gen);
+            if (!S.bcStarted) { S.bcStarted = true; setTimeout(() => { if (S.active) prepareBackchannels(); }, 6000); }
         } catch (err) {
             if (gen !== S.gen || (err && err.name === 'AbortError')) return;
+            diagLog('erreur réponse : ' + String(err && err.message || err).slice(0, 120));
             el.capBot.textContent = String(err && err.message || err).slice(0, 140);
             S.llmDone = true;
             setState('idle');
@@ -263,7 +305,9 @@
         let rest = S.pendingText;
         for (;;) {
             let cut = -1;
-            const m = rest.match(/^[\s\S]*?[.!?…:;\n](?=\s|$)/);
+            if (final && rest.length <= 300) break;   // fin de réponse : le reste part en une seule requête de voix
+            // Après le premier morceau, on regroupe les phrases (≈ 110 caractères) : moins de requêtes de voix, donc moins de 429
+            const m = S.spoken && !final ? rest.match(/^[\s\S]{100,}?[.!?…](?=\s|$)/) : rest.match(/^[\s\S]*?[.!?…:;\n](?=\s|$)/);
             if (m) cut = m[0].length;
             else if (!S.spoken && !final) { const c = rest.match(/^[\s\S]{24,}?,(?=\s)/); if (c) cut = c[0].length; }
             else if (rest.length > 180 && !final) { const c = rest.match(/^[\s\S]{100,}?[,\s](?=\S)/); if (c) cut = c[0].length; }
@@ -283,6 +327,7 @@
         S.spoken += text + ' ';
         if (S.state !== 'speaking') setState('speaking');
         S.voiceChain = S.voiceChain.then(() => gen === S.gen && streamTts(text, gen)).catch((err) => {
+            diagLog('erreur voix : ' + String(err && err.message || err).slice(0, 120));
             if (gen === S.gen) el.capBot.textContent = 'Voix indisponible : ' + String(err && err.message || err).slice(0, 100);
         });
     }
@@ -349,6 +394,7 @@
 
     // L'utilisateur parle par-dessus : elle se tait, la réponse en cours est abandonnée
     function interrupt() {
+        diagLog('interruption');
         const spokenSoFar = S.spoken.trim();
         S.gen++;
         try { S.llmAbort && S.llmAbort.abort(); } catch (e) { /* déjà fini */ }
@@ -374,7 +420,7 @@
                 const res = await mistral('/v1/audio/speech', { method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + mistralKey() },
                     body: JSON.stringify({ model: TTS_MODEL, input: text, response_format: 'pcm', voice_id: TTS_VOICE, stream: true }) }, 2);
-                if (!res.ok) continue;
+                if (!res.ok) { diagLog('réactions vocales abandonnées (' + res.status + ')'); return; }
                 const parts = [];
                 await readPcm(res, 'bc', (s) => parts.push(s));
                 const total = parts.reduce((n, p) => n + p.length, 0);
@@ -383,7 +429,7 @@
                 let o = 0; for (const p of parts) { all.set(p, o); o += p.length; }
                 S.bcBuffers.push(all);
             } catch (e) { /* tant pis : seulement les hochements */ }
-            await sleep(1100);
+            await sleep(2500);
         }
     }
     function playBackchannel(now) {
@@ -423,7 +469,9 @@
         el.start.hidden = true; el.mute.hidden = el.cut.hidden = el.stop.hidden = false; el.note.hidden = true;
         el.capUser.textContent = ''; el.capBot.textContent = '';
         setState('idle');
-        prepareBackchannels();
+        diagLog('--- ouverture · ' + navigator.userAgent);
+        // Les petites réactions (« hm ») se préparent après le premier échange, pour ne pas peser sur le quota au départ
+        S.bcStarted = false;
     }
     function end() {
         S.active = false;
@@ -447,5 +495,5 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden && S.ctx && S.ctx.state !== 'running') { try { S.ctx.resume(); } catch (e) { /* repris au toucher */ } } });
 
     // Accès pour les essais (?test) : simule une phrase de l'utilisateur sans micro
-    window.avatar = { say, state: S, begin, end, newContext, watchEnd };
+    window.avatar = { say, state: S, begin, end, newContext, watchEnd, face: () => face };
 })();
