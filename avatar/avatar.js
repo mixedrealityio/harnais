@@ -156,7 +156,7 @@
             const pause = now - S.lastVoiceAt, dur = now - S.speechStart;
             // Il hoche la tête dès qu'on marque une pause, et réagit à voix basse quand on parle longtemps
             if (pause > 250 && pause < 700 && now - S.lastNod > 2200) { S.lastNod = now; face.nod(0.8); }
-            if (dur > BC_MIN_SPEECH_MS && pause > BC_PAUSE_MIN && pause < BC_PAUSE_MAX && now - S.lastBc > BC_GAP_MS && !bcPlaying) playBackchannel(now);
+            if (dur > BC_MIN_SPEECH_MS && pause > BC_PAUSE_MIN && pause < BC_PAUSE_MAX && now - S.lastBc > BC_GAP_MS && !bcPlaying && S.ttsPending === 0 && S.sources.length === 0) playBackchannel(now);
             if (pause > END_SILENCE_MS || dur > MAX_SPEECH_MS) finishUtterance();
             return;
         }
@@ -312,8 +312,15 @@
         return lastRes;
     }
 
+    function stopAllSounds() {
+        for (const src of S.sources) { try { src.stop(); } catch (e) { /* déjà arrêtée */ } }
+        S.sources = []; S.playHead = 0; S.bcUntil = 0;
+    }
+
     async function say(userText) {
         const gen = ++S.gen;
+        stopAllSounds();
+        S.ttsPending = 0; S.voiceChain = Promise.resolve();
         S.history.push({ role: 'user', content: userText });
         if (S.history.length > HISTORY_MAX) S.history.splice(0, S.history.length - HISTORY_MAX);
         S.prevBot = (S.botText + ' ' + S.prevBot).slice(0, 600);
@@ -408,7 +415,7 @@
             body: JSON.stringify({ model: TTS_MODEL, input: text, response_format: 'pcm', voice_id: voice().id, stream: true })
         }, 3);
         if (!res.ok) throw new Error('Mistral ' + res.status);
-        await readPcm(res, gen, (samples) => schedule(samples, 1, voice().rate));
+        await readPcm(res, gen, (samples) => { if (gen === S.gen) schedule(samples, 1, voice().rate); });
     }
     async function readPcm(res, gen, onSamples) {
         const reader = res.body.getReader();
@@ -446,6 +453,7 @@
         S.sources.push(src);
         src.onended = () => { S.sources = S.sources.filter(x => x !== src); };
         S.playHead = when + buf.duration / rate;
+        diagLog(`son planifié : départ dans ${(when - S.ctx.currentTime).toFixed(2)} s, durée ${(buf.duration / rate).toFixed(2)} s, ${S.sources.length} en file`);
     }
 
     // Fin de réponse : quand tout est lu, retour à l'écoute
