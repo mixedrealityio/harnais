@@ -3,13 +3,13 @@
 // Même interface que face.js : setState, setMouth, setListenLevel, nod, stop.
 (function () {
     'use strict';
-    const IMG = 'lapin.png';   // photo détourée (fond retiré), agrandie 3 fois
-    const K = 3;                                    // agrandissement par rapport à la photo d'origine
-    const IW = 253 * K, IH = 299 * K;               // taille de l'image
-    const BOX = [216, 105, 558, 789];               // cadre du lapin dans l'image
-    const EYES = [[110.5 * K, 124.3 * K], [150.3 * K, 124.1 * K]];  // billes noires
-    const EYE_R = 6.4 * K;
-    const MOUTH = [130 * K, 145 * K];
+    const IMG = 'lapin.png';   // photo détourée (fond retiré)
+    const K = 3.3;                                  // échelle des détails dessinés (billes, bouche) par rapport à la première photo
+    const IW = 944, IH = 1116;                      // taille de l'image
+    const BOX = [268, 129, 697, 986];               // cadre du lapin dans l'image
+    const EYES = [[412.7, 463.3], [562.3, 463.3]];  // billes noires
+    const EYE_R = 21;
+    const MOUTH = [488, 540];                       // sous le museau
     const RESERVE_CSS = 210;                        // hauteur gardée en bas pour le texte et les boutons                       // sous le museau
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const lerp = (a, b, t) => a + (b - a) * t;
@@ -23,7 +23,7 @@
             ready = true;
             try {   // couleur du pelage entre les yeux, pour les paupières
                 const c = document.createElement('canvas'); c.width = c.height = 1;
-                c.getContext('2d').drawImage(img, 128 * K, 112 * K, 4 * K, 4 * K, 0, 0, 1, 1);
+                c.getContext('2d').drawImage(img, 486, 440, 12, 12, 0, 0, 1, 1);
                 const d = c.getContext('2d').getImageData(0, 0, 1, 1).data;
                 fur = `rgb(${d[0]},${d[1]},${d[2]})`;
             } catch (e) { /* pelage par défaut */ }

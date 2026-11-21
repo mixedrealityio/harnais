@@ -5,7 +5,9 @@
     'use strict';
 
     // ---------- Réglages ----------
-    const CHAT_MODEL = 'ministral-8b-latest';
+    // Palier gratuit Mistral : 2 requêtes par minute et par modèle. On répartit donc les réponses entre plusieurs modèles.
+    const CHAT_POOL = ['ministral-8b-latest', 'ministral-14b-latest', 'ministral-3b-latest', 'open-mistral-nemo'];
+    const PER_MODEL_PER_MIN = 2;
     const STT_MODEL = 'voxtral-mini-latest';
     const TTS_MODEL = 'voxtral-mini-tts-2603';
     const TTS_VOICE = 'fr_marie_neutral';
@@ -243,6 +245,44 @@
     const WEB_RE = /\b(météo|temps qu.il fait|il fait (combien|quel)|actualit|actu\b|infos?\b|nouvelles?\b|aujourd.hui|ce (matin|soir)|en ce moment|dernier(e|s)?\b|récent|cette semaine|hier|demain|score|résultat|match|classement|cours (de|du)|bourse|prix|combien (coûte|ça coûte|vaut)|horaires?|ouvert|élections?|président|premier ministre|cherche|recherche|sur (internet|le web)|trouve)/i;
     function needsWeb(text) { return WEB_RE.test(text); }
 
+    // Chaque modèle a son quota par minute (fenêtre de l'horloge) : on prend le premier modèle qui n'est pas épuisé ;
+    // si tous le sont, on attend la minute suivante en le disant à l'écran
+    const poolUse = {};
+    const minuteId = () => Math.floor(Date.now() / 60000);
+    const used = (m) => (poolUse[m] && poolUse[m].win === minuteId() ? poolUse[m].n : 0);
+    function pickModel() {
+        let best = null;
+        for (const m of CHAT_POOL) if (used(m) < PER_MODEL_PER_MIN && (best === null || used(m) < used(best))) best = m;
+        return best;
+    }
+    async function chatRequest(web, abort, gen) {
+        let lastRes = null;
+        for (let essai = 0; essai < CHAT_POOL.length * 2 + 1; essai++) {
+            if (gen !== S.gen) return null;
+            let model = pickModel();
+            if (!model) {
+                const wait = 60000 - (Date.now() % 60000) + 400;
+                diagLog('tous les modèles Mistral sont à leur limite : attente ' + Math.round(wait / 1000) + ' s');
+                el.capBot.textContent = 'Je reprends mon souffle… (limite Mistral)';
+                await sleep(wait);
+                if (gen !== S.gen) return null;
+                model = pickModel() || CHAT_POOL[0];
+            }
+            poolUse[model] = { win: minuteId(), n: used(model) + 1 };
+            diagLog('modèle ' + model + ' (' + poolUse[model].n + '/' + PER_MODEL_PER_MIN + ')');
+            const res = await mistral(web ? '/mistral/v1/chat/completions' : '/v1/chat/completions', {
+                method: 'POST', signal: abort.signal,
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + mistralKey() },
+                body: JSON.stringify({ model, stream: true, max_tokens: 220, temperature: 0.7, ...(web ? { web_search: true, web_voice: true } : {}),
+                    messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...S.history] })
+            }, 1, web ? '..' : 'https://api.mistral.ai');
+            if (res.status !== 429) return res;
+            poolUse[model] = { win: minuteId(), n: PER_MODEL_PER_MIN };   // ce modèle est épuisé pour cette minute
+            lastRes = res;
+        }
+        return lastRes;
+    }
+
     async function say(userText) {
         const gen = ++S.gen;
         S.history.push({ role: 'user', content: userText });
@@ -256,12 +296,8 @@
         const web = needsWeb(userText);
         if (web) { diagLog('recherche web'); el.capBot.textContent = 'Je cherche sur le web…'; }
         try {
-            const res = await mistral(web ? '/mistral/v1/chat/completions' : '/v1/chat/completions', {
-                method: 'POST', signal: abort.signal,
-                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + mistralKey() },
-                body: JSON.stringify({ model: CHAT_MODEL, stream: true, max_tokens: 220, temperature: 0.7, ...(web ? { web_search: true, web_voice: true } : {}),
-                    messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...S.history] })
-            }, 4, web ? '..' : 'https://api.mistral.ai');
+            const res = await chatRequest(web, abort, gen);
+            if (!res) return;
             if (!res.ok) throw new Error('Mistral ' + res.status + (res.status === 429 ? ' : limite de requêtes, patientez un instant' : ''));
             const reader = res.body.getReader();
             const dec = new TextDecoder();
