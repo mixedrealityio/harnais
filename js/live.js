@@ -86,11 +86,16 @@
     // --- Voix : Voxtral (Mistral) jouée dans le contexte audio du micro, sinon celle de l'appareil (voix.js) ---
     // La voix de l'appareil fait couper le micro par iOS pendant qu'elle parle : plus de coupure de parole possible.
     // Jouée par le site dans le même contexte que le micro, iOS garde le micro ouvert avec l'annulation d'écho.
-    const VOXTRAL_MODEL = 'voxtral-mini-tts-3-0';
-    const VOXTRAL_VOICE = 'voice_592';   // Marie, comme la lecture à voix haute
-    const VOXTRAL_LIVE = false;   // désactivé le temps d'essayer la voix de l'appareil avec interruption au toucher
+    const VOXTRAL_MODEL = 'voxtral-mini-tts-2603';
+    const VOXTRAL_VOICE = 'fr_marie_neutral';   // Marie, comme la lecture à voix haute
+    const VOXTRAL_LIVE = true;   // voix Mistral (Marie) jouée par le site ; interruption au toucher du lapin sur iPhone
     function useVoxtral() { return VOXTRAL_LIVE && !!(typeof API_KEYS !== 'undefined' && API_KEYS.mistral); }
     function speak(text) {
+        // Jamais lus : liste de sources, renvois [1], adresses web
+        text = text.replace(/(^|\n)\s*Sources?\s*:[\s\S]*$/i, ' ').replace(/\[\d+(?:\s*[,\-–]\s*\d+)*\]/g, ' ').replace(/\bhttps?:\/\/\S+/g, ' ');
+        // Plages de nombres (« 11‑12 °C ») : sans « à », la voix lit « 1112 » ; degrés dits en toutes lettres
+        text = text.replace(/(\d)\s*[\u2010-\u2015\u2212]\s*(\d)/g, '$1 à $2').replace(/(\d)\s*-\s*(\d+(?:[.,]\d+)?\s*(?:°|%|km|kg|h\b|€|mm|cm|m\b))/g, '$1 à $2')
+            .replace(/\s*°\s*C\b/g, ' degrés Celsius').replace(/\s*°\s*F\b/g, ' degrés Fahrenheit').replace(/\s*°/g, ' degrés');
         text = text.replace(/[*_`#>|~]+/g, ' ').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim();
         if (!text) return;
         if (useVoxtral() && state.ctx) return speakVoxtral(text);
@@ -99,14 +104,18 @@
         const voice = getSystemVoice();
         u.lang = voice?.lang || 'fr-FR';
         if (voice) u.voice = voice;
-        u.rate = 1.05;
+        u.rate = 1;
+        const prevUtt = state.lastUtt;
+        state.lastUtt = u;
         state.speakQueue++;
-        diagLog('voix demandée : ' + text.slice(0, 50));
+        let counted = false;   // une voix « bloquée vidée » relance son onerror : un seul décompte par phrase
+        diagLog('voix demandée (' + (voice ? voice.name + ' ' + voice.lang : 'aucune voix française') + ') : ' + text.slice(0, 50));
         u.onstart = () => diagLog('voix commence');
-        u.onend = u.onerror = (e) => { diagLog('voix ' + e.type + (e.error ? ' ' + e.error : '')); state.speakQueue = Math.max(0, state.speakQueue - 1); };
+        u.onend = u.onerror = (e) => { diagLog('voix ' + e.type + (e.error ? ' ' + e.error : '')); if (counted) return; counted = true; state.speakQueue = Math.max(0, state.speakQueue - 1); };
         // iPhone : une lecture restée bloquée (déverrouillage à l'ouverture) retient toute la file, on la vide d'abord
         if (state.speakQueue === 1 && (speechSynthesis.speaking || speechSynthesis.pending)) {
             diagLog('voix bloquée vidée');
+            if (prevUtt) prevUtt.onend = prevUtt.onerror = null;   // son « canceled » ne doit pas décompter la nouvelle phrase
             speechSynthesis.cancel();
             setTimeout(() => speechSynthesis.speak(u), 100);   // parler juste après cancel est parfois ignoré
             return;
@@ -130,12 +139,20 @@
     async function streamVoxtral(text, gen) {
         const abort = new AbortController();
         state.voiceAbort = abort;
-        const response = await fetch('https://api.mistral.ai/v1/audio/speech', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEYS.mistral}` },
-            body: JSON.stringify({ model: VOXTRAL_MODEL, input: text, response_format: 'pcm', voice_id: VOXTRAL_VOICE, stream: true }),
-            signal: abort.signal
-        });
+        let response;
+        // Limite de requêtes de Mistral (429) : une nouvelle tentative après une courte pause, deux au plus
+        for (let essai = 0; ; essai++) {
+            response = await fetch('https://api.mistral.ai/v1/audio/speech', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEYS.mistral}` },
+                body: JSON.stringify({ model: VOXTRAL_MODEL, input: text, response_format: 'pcm', voice_id: VOXTRAL_VOICE, stream: true }),
+                signal: abort.signal
+            });
+            if (response.status !== 429 || essai >= 2 || gen !== state.voiceGen) break;
+            diagLog('voix Voxtral 429, nouvelle tentative');
+            await new Promise(r => setTimeout(r, 1500 * (essai + 1)));
+            if (gen !== state.voiceGen) return;
+        }
         if (!response.ok) throw new Error(`Mistral ${response.status} : ${(await response.text()).slice(0, 200)}`);
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -400,7 +417,7 @@
     // Transcription choisie dans Configuration, sinon Voxtral (Mistral) si la clé est là
     function sttModelId() {
         if (AUDIO_SETTINGS.sttProvider) return AUDIO_SETTINGS.sttProvider;
-        if (API_KEYS.mistral) return 'voxtral-mini-transcribe-3-0';
+        if (API_KEYS.mistral) return 'voxtral-mini-latest';
         if (API_KEYS.google) return 'gemini-3.5-transcribe';
         return 'gpt-transcribe';
     }
@@ -433,7 +450,7 @@
             const textEl = state.assistantEl.querySelector('.message-text') || state.assistantEl;
             // Sans « Génération en cours… », état de recherche ni réflexion : seulement la réponse
             let full = textEl.innerText || '';
-            textEl.querySelectorAll('.generation-placeholder, .stream-status, .thinking-block, details').forEach(el => {
+            textEl.querySelectorAll('.generation-placeholder, .stream-status, .thinking-block, details, .citations, .web-search-block, .web-search-sources').forEach(el => {
                 const t = el.innerText;
                 if (t) full = full.replace(t, '');
             });
@@ -474,6 +491,7 @@
             speechSynthesis.speak(unlock);
         }
         diagLog('--- ouverture Live · ' + navigator.userAgent);
+        try { diagLog('voix françaises de l\'appareil : ' + (speechSynthesis.getVoices().filter(v => /^fr/i.test(v.lang)).map(v => v.name + (v.localService ? '' : ' [réseau]')).join(' | ') || 'aucune')); } catch (e) { /* rien */ }
         newContext();
         state.blocks = 0; state.maxRms = 0; state.rebuilt = false; state.floor = 0.004; state.hits = [];
         overlay.hidden = false;

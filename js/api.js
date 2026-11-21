@@ -21,6 +21,11 @@ function isLocalRelay(editeur) {
     return /\/harnais\/local\/?$/.test(API_KEYS[editeur] || '');
 }
 
+// Page servie par le VPS (/harnais/) : le relais /harnais/mistral ajoute la recherche web (Tavily) au chat Mistral
+function isMistralRelay() {
+    return /\/harnais\//.test(location.pathname);
+}
+
 function isLocalEditeur(editeur) {
     return editeur === 'ollama' || editeur === 'lmstudio';
 }
@@ -332,8 +337,10 @@ const RENAMED_MODEL_IDS = {
     // Sonar ne répond plus (fin de son API) ; Sonar Pro, si
     'sonar': 'sonar-pro',
     // Réglages audio : Voxtral 2 remplacé par Voxtral 3
-    'voxtral-mini-tts-2603': 'voxtral-mini-tts-3-0',
-    'voxtral-mini-latest': 'voxtral-mini-transcribe-3-0'
+    'voxtral-mini-tts-3-0': 'voxtral-mini-tts-2603',
+    // Voxtral 3 (transcription) renvoie sans cesse 429 : retour à Voxtral Mini
+    'voxtral-mini-transcribe-3-0': 'voxtral-mini-latest',
+    'voxtral-small-transcribe-3-0': 'voxtral-mini-2602'
 };
 function migrateModelId(id) { return RENAMED_MODEL_IDS[id] || id; }
 
@@ -2189,7 +2196,7 @@ const PROVIDERS = {
     // --- Mistral (Chat Completions) ---
 
     mistral: chatCompletionsProvider({
-        getUrl: () => 'https://api.mistral.ai/v1/chat/completions',
+        getUrl: (modelId, webSearch) => (webSearch && isMistralRelay() ? 'mistral/v1/chat/completions' : 'https://api.mistral.ai/v1/chat/completions'),
         getHeaders: () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${API_KEYS.mistral}` }),
         toolMessageName: true,
         formatOptions: { trimTrailingAssistant: true },
@@ -2199,6 +2206,7 @@ const PROVIDERS = {
             const effort = modelParams?.reasoning_effort;
             return {
                 stream_options: { include_usage: true },
+                ...(webSearch && isMistralRelay() ? { web_search: true } : {}),
                 ...(reasoning && effort && { reasoning_effort: reasoning.binary ? (effort === 'minimal' ? 'none' : 'high') : effort })
             };
         }
@@ -2464,6 +2472,7 @@ async function streamModel(modelId, conversationHistory, onChunk, onDone, onErro
         let malformedRetries = 0;
         let fakeNotes = 0;
         let optionDropped = false;
+        let rateLimitRetries = 0;
         let pauses = 0;
         let sepPending = false;
         let lastEmitted = '';
@@ -2509,6 +2518,17 @@ async function streamModel(modelId, conversationHistory, onChunk, onDone, onErro
                     continue;
                 }
                 if (isLocalEditeur(editeur) && (response.status === 401 || response.status === 403)) throw new Error(_localAuthMessage(editeur));
+                // Limite de requêtes par seconde/minute (Mistral, OpenRouter gratuits) : on patiente puis on renvoie, jusqu'à 2 fois
+                if (response.status === 429 && !isLocalEditeur(editeur) && rateLimitRetries < 2) {
+                    const waitS = Math.min(30, Number(response.headers.get('retry-after')) || [2, 5][rateLimitRetries]);
+                    rateLimitRetries++;
+                    await new Promise((resolve, reject) => {
+                        const t = setTimeout(resolve, waitS * 1000);
+                        if (signal) signal.addEventListener('abort', () => { clearTimeout(t); reject(new DOMException('Aborted', 'AbortError')); }, { once: true });
+                    });
+                    round--;
+                    continue;
+                }
                 throw new Error(`${editeur} API error ${response.status}: ${err}`);
             }
 
@@ -3121,13 +3141,19 @@ function pcmToWavBlob(pcmBase64, sampleRate = 24000) {
     return new Blob([buf], { type: 'audio/wav' });
 }
 
+// Voix de l'appareil : « 11‑12 °C » est lu « 1112 » sans « à » ; degrés dits en toutes lettres
+function _speechNumbers(text) {
+    return String(text).replace(/(\d)\s*[\u2010-\u2015\u2212]\s*(\d)/g, '$1 à $2')
+        .replace(/(\d)\s*-\s*(\d+(?:[.,]\d+)?\s*(?:°|%|km|kg|h\b|€|mm|cm|m\b))/g, '$1 à $2')
+        .replace(/\s*°\s*C\b/g, ' degrés Celsius').replace(/\s*°\s*F\b/g, ' degrés Fahrenheit').replace(/\s*°/g, ' degrés');
+}
 async function ttsSpeak(text, onDone, onError, silent = false, onPlayingStart = null, onPlayingEnd = null) {
     const ttsModel = MODELS_DATA.tts.find(m => m.id === AUDIO_SETTINGS.ttsProvider);
     const ttsEditeur = ttsModel?.editeur;
     if (ttsEditeur === 'system') {
         try {
             if (!window.speechSynthesis) throw new Error('La synthèse vocale native n\'est pas supportée par ce navigateur.');
-            const utterance = new SpeechSynthesisUtterance(text);
+            const utterance = new SpeechSynthesisUtterance(_speechNumbers(text));
             // Voix choisie dans la Configuration (voix.js)
             const voice = typeof getSystemVoice === 'function' ? getSystemVoice() : null;
             utterance.lang = voice?.lang || 'fr-FR';
@@ -3235,8 +3261,8 @@ async function ttsSpeak(text, onDone, onError, silent = false, onPlayingStart = 
                     model: ttsModel.id,
                     input: text,
                     response_format: 'pcm',
-                    // Marie de Voxtral 3 (fr_marie_neutral : celle de Voxtral 2)
-                    voice_id: 'voice_592',
+                    // Marie (Voxtral TTS 2603)
+                    voice_id: 'fr_marie_neutral',
                     stream: true
                 })
             });

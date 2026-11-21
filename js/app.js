@@ -171,6 +171,7 @@ const STREAM_ERROR_CONTENT = 'Une erreur est survenue. Réessayez de générer l
 // Erreurs d'un fournisseur dont changer de modèle ne vient pas à bout
 const STREAM_ERROR_BY_STATUS = {
     401: 'Le fournisseur a refusé la clé API. Vérifiez-la dans Configuration > Clés API, puis réessayez.',
+    429: 'Le fournisseur limite le nombre de requêtes (quota de la clé API atteint). Attendez une minute puis réessayez, ou changez de modèle ou de fournisseur.',
     402: 'Le fournisseur a refusé la demande faute de crédit. Ajoutez du crédit sur votre compte, ou relevez la limite de la clé API, puis réessayez.'
 };
 function streamErrorContent(err) {
@@ -2091,6 +2092,7 @@ const WEB_SEARCH_TOOLTIPS = {
     anthropic: 'Prix recherche web Anthropic : 0,01 $ / recherche, 5 recherches au plus par appel (réglage « Recherches web »)',
     google: 'Prix recherche web Google : 5000 requêtes sans frais supplémentaires',
     grok: 'Prix recherche web Grok : 0,005 $ par recherche ou page lue (5 $ les 1000)',
+    mistral: 'Recherche web gratuite pour Mistral : le serveur cherche avec Tavily et joint les résultats à votre question.',
     lmstudio: 'Recherche web gratuite pour votre IA locale : le serveur cherche avec Tavily (la clé d\'Open WebUI) et joint les résultats à votre question.',
     openrouter: 'Activer la recherche web et la récupération de pages web sur OpenRouter.\n• Recherche web : ~0,007 $ par recherche, 5 au plus par appel (réglage « Recherches web »)\n• Récupération : 0,001 $/page web'
 };
@@ -2126,7 +2128,7 @@ function updateWebSearchBtn() {
         // OpenRouter : sa recherche passe par des outils, refusés aux modèles qui n'en gèrent pas
         const orNoTools = model && model.editeur === 'openrouter' && Array.isArray(model.supportedParameters) && model.supportedParameters.length
             && !model.supportedParameters.includes('tools') && !hasBuiltInWebSearch(activeModel);
-        const localWeb = model && model.editeur === 'lmstudio' && isLocalRelay('lmstudio');
+        const localWeb = model && ((model.editeur === 'lmstudio' && isLocalRelay('lmstudio')) || (model.editeur === 'mistral' && isMistralRelay()));
         if (model && (WEB_SEARCH_EDITEURS.includes(model.editeur) || localWeb) && !orNoTools) {
             const builtIn = hasBuiltInWebSearch(activeModel);
             webSearchEnabled = webSearchPref;
