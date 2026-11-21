@@ -107,8 +107,8 @@
                     const cover = clamp(s.blink * 1.1, 0, 1) * ry * 2;
                     ctx.fillStyle = furEyes[i];
                     ctx.fillRect(x - rx, y - ry - 1, rx * 2, cover + 1);
-                    // Texture : le poil juste au-dessus de l'œil, recopié sur la paupière
-                    if (cover > 2) ctx.drawImage(img, x - rx, y - ry - cover - 8, rx * 2, cover, x - rx, y - ry, rx * 2, cover);
+                    // Texture : le poil juste sous l'œil (même teinte que la joue), recopié sur la paupière
+                    if (cover > 2) ctx.drawImage(img, x - rx, y + ry + 10, rx * 2, cover, x - rx, y - ry, rx * 2, cover);
                     ctx.restore();
                     if (s.blink > 0.55) {
                         ctx.strokeStyle = 'rgba(95,80,68,0.75)'; ctx.lineWidth = 1.2 * K; ctx.lineCap = 'round';
@@ -117,18 +117,27 @@
                     }
                 });
             }
-            // Bouche : une petite ouverture sombre, qui s'élargit avec la voix
-            if (s.mOpen > 0.05) {
+            // Bouche : pas de bouche sur la peluche, donc une ombre douce dans le poil (bords fondus), qui s'ouvre avec la voix
+            if (s.mOpen > 0.04) {
                 const [mx, my] = MOUTH;
-                const rx = (2.4 + s.mWide * 2.4 - s.mOpen * 0.5) * K, ry = (0.8 + s.mOpen * 4.6) * K;
-                ctx.fillStyle = '#4a1d22';
-                ctx.beginPath(); ctx.ellipse(mx, my + ry * 0.4, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-                if (ry > 3.5) {
-                    ctx.fillStyle = '#b4565e';
-                    ctx.beginPath(); ctx.ellipse(mx, my + ry * 0.85, rx * 0.65, ry * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+                const rx = (2.2 + s.mWide * 1.8 + s.mOpen * 0.5) * K, ry = (0.8 + s.mOpen * 4.2) * K;
+                const cy = my + ry * 0.35;
+                ctx.save();
+                ctx.translate(mx, cy); ctx.scale(rx * 1.7, ry * 1.7);
+                const outer = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+                outer.addColorStop(0, `rgba(78,36,38,${0.35 + s.mOpen * 0.4})`);
+                outer.addColorStop(0.55, `rgba(110,64,60,${0.22 + s.mOpen * 0.22})`);
+                outer.addColorStop(1, 'rgba(120,80,70,0)');
+                ctx.fillStyle = outer; ctx.fillRect(-1.1, -1.1, 2.2, 2.2);
+                if (s.mOpen > 0.3) {
+                    ctx.scale(0.55, 0.55);
+                    const inner = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+                    inner.addColorStop(0, `rgba(48,18,22,${0.5 + s.mOpen * 0.4})`);
+                    inner.addColorStop(0.7, 'rgba(60,26,28,0.35)');
+                    inner.addColorStop(1, 'rgba(60,26,28,0)');
+                    ctx.fillStyle = inner; ctx.fillRect(-1.1, -1.1, 2.2, 2.2);
                 }
-                ctx.strokeStyle = 'rgba(120,70,70,0.55)'; ctx.lineWidth = 0.9 * K;
-                ctx.beginPath(); ctx.ellipse(mx, my + ry * 0.4, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+                ctx.restore();
             }
             ctx.restore();
         }
