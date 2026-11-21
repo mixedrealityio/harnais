@@ -30,6 +30,9 @@
             canvas.height = Math.max(1, Math.round(r.height * dpr));
         }
         window.addEventListener('resize', resize);
+        // Le cadre du canvas change aussi sans que la fenêtre bouge (boutons, journal, mode lapin) : sinon l'image est écrasée
+        let ro = null;
+        if (window.ResizeObserver) { ro = new ResizeObserver(resize); ro.observe(canvas); }
         resize();
 
         // --- Comportement ---
@@ -245,7 +248,7 @@
             setMouth(open, wide) { s.mouthOpen = clamp(open, 0, 1); s.mouthWide = clamp(wide, 0, 1); },
             setListenLevel(v) { s.listenLevel = lerp(s.listenLevel, clamp(v, 0, 1), 0.25); },
             nod(strength) { s.nodV = -(strength || 1) * 7; },
-            stop() { running = false; window.removeEventListener('resize', resize); }
+            stop() { running = false; window.removeEventListener('resize', resize); if (ro) ro.disconnect(); }
         };
     }
     window.AvatarFace = Face;
