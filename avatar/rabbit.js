@@ -3,11 +3,14 @@
 // Même interface que face.js : setState, setMouth, setListenLevel, nod, stop.
 (function () {
     'use strict';
-    const IMG = 'lapin.jpg';
-    const IW = 253, IH = 299;                       // taille de la photo
-    const EYES = [[110.5, 124.3], [150.3, 124.1]];  // billes noires
-    const EYE_R = 6.4;
-    const MOUTH = [130, 145];                       // sous le museau
+    const IMG = 'lapin.png';   // photo détourée (fond retiré), agrandie 3 fois
+    const K = 3;                                    // agrandissement par rapport à la photo d'origine
+    const IW = 253 * K, IH = 299 * K;               // taille de l'image
+    const BOX = [216, 105, 558, 789];               // cadre du lapin dans l'image
+    const EYES = [[110.5 * K, 124.3 * K], [150.3 * K, 124.1 * K]];  // billes noires
+    const EYE_R = 6.4 * K;
+    const MOUTH = [130 * K, 145 * K];
+    const RESERVE_CSS = 210;                        // hauteur gardée en bas pour le texte et les boutons                       // sous le museau
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const lerp = (a, b, t) => a + (b - a) * t;
     const rnd = (a, b) => a + Math.random() * (b - a);
@@ -20,7 +23,7 @@
             ready = true;
             try {   // couleur du pelage entre les yeux, pour les paupières
                 const c = document.createElement('canvas'); c.width = c.height = 1;
-                c.getContext('2d').drawImage(img, 128, 112, 4, 4, 0, 0, 1, 1);
+                c.getContext('2d').drawImage(img, 128 * K, 112 * K, 4 * K, 4 * K, 0, 0, 1, 1);
                 const d = c.getContext('2d').getImageData(0, 0, 1, 1).data;
                 fur = `rgb(${d[0]},${d[1]},${d[2]})`;
             } catch (e) { /* pelage par défaut */ }
@@ -63,24 +66,25 @@
             ctx.globalCompositeOperation = 'source-over';
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, w, h);
-            const sc = Math.min(w / IW, h / IH) * 1.3;
             const breath = Math.sin(s.t * 1.8) * 0.004;
-            const drawGlow = () => {   // halo de la voix, derrière la peluche
-                ctx.globalCompositeOperation = 'destination-over';
-                const gl = ctx.createRadialGradient(w / 2, h * 0.5, 10, w / 2, h * 0.5, Math.min(w, h) * 0.55);
-                gl.addColorStop(0, `rgba(217,117,48,${0.10 + s.listenLevel * 0.2 + s.mOpen * 0.1})`);
-                gl.addColorStop(1, 'rgba(217,117,48,0)');
-                ctx.fillStyle = gl; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillRect(0, 0, w, h);
-                ctx.globalCompositeOperation = 'source-over';
-            };
-            if (!ready) { drawGlow(); return; }
+            if (!ready) return;
 
-            // La peluche pivote autour de ses pieds : balancement, hochement (écrasement), rebond avec la voix
-            const px = IW / 2, py = IH * 0.97;
+            // Le lapin entier tient au-dessus des boutons (zone réservée en bas) ; il pivote autour de ses pieds
+            const reserve = Math.min(RESERVE_CSS * dpr, h * 0.34);
+            const rh = h - reserve;
+            const bw = BOX[2] - BOX[0], bh = BOX[3] - BOX[1];
+            const sc = Math.min(rh * 0.92 / bh, w * 0.9 / bw);
+            const cx = (BOX[0] + BOX[2]) / 2, cy = (BOX[1] + BOX[3]) / 2;
+            const px = cx, py = BOX[3] - 10;
+            // Halo derrière lui, qui réagit à la voix
+            const gl = ctx.createRadialGradient(w / 2, rh / 2, 10, w / 2, rh / 2, Math.min(w, rh) * 0.62);
+            gl.addColorStop(0, `rgba(217,117,48,${0.16 + s.listenLevel * 0.2 + s.mOpen * 0.12})`);
+            gl.addColorStop(1, 'rgba(217,117,48,0)');
+            ctx.fillStyle = gl; ctx.fillRect(0, 0, w, h);
             ctx.save();
-            ctx.translate(w / 2, h / 2 + (h - IH * sc) * 0.0);
+            ctx.translate(w / 2, rh / 2 + rh * 0.03);
             ctx.scale(sc, sc);
-            ctx.translate(-px, -(IH / 2));
+            ctx.translate(-cx, -cy);
             ctx.translate(px, py);
             ctx.rotate(s.tilt + Math.sin(s.t * 0.7) * 0.012 + Math.sin(s.t * 2.9) * 0.0035 * (s.state === 'speaking' ? 1 : 0.3));
             ctx.scale(1 + breath, 1 + breath * 1.5 - s.nod * 0.012 + s.bounce * 0.016);
@@ -91,36 +95,27 @@
             if (s.blink > 0.02) {
                 EYES.forEach(([x, y]) => {
                     ctx.fillStyle = fur;
-                    ctx.beginPath(); ctx.ellipse(x, y, EYE_R + 1.6, (EYE_R + 1.6) * clamp(s.blink * 1.15, 0, 1), 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.ellipse(x, y, EYE_R + 1.6 * K, (EYE_R + 1.6 * K) * clamp(s.blink * 1.15, 0, 1), 0, 0, Math.PI * 2); ctx.fill();
                     if (s.blink > 0.6) {
-                        ctx.strokeStyle = 'rgba(90,75,62,0.7)'; ctx.lineWidth = 1.1; ctx.lineCap = 'round';
-                        ctx.beginPath(); ctx.moveTo(x - EYE_R, y); ctx.quadraticCurveTo(x, y + 2.4, x + EYE_R, y); ctx.stroke();
+                        ctx.strokeStyle = 'rgba(90,75,62,0.7)'; ctx.lineWidth = 1.1 * K; ctx.lineCap = 'round';
+                        ctx.beginPath(); ctx.moveTo(x - EYE_R, y); ctx.quadraticCurveTo(x, y + 2.4 * K, x + EYE_R, y); ctx.stroke();
                     }
                 });
             }
             // Bouche : une petite ouverture sombre, qui s'élargit avec la voix
             if (s.mOpen > 0.05) {
                 const [mx, my] = MOUTH;
-                const rx = 2.4 + s.mWide * 2.4 - s.mOpen * 0.5, ry = 0.8 + s.mOpen * 4.6;
+                const rx = (2.4 + s.mWide * 2.4 - s.mOpen * 0.5) * K, ry = (0.8 + s.mOpen * 4.6) * K;
                 ctx.fillStyle = '#4a1d22';
                 ctx.beginPath(); ctx.ellipse(mx, my + ry * 0.4, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
                 if (ry > 3.5) {
                     ctx.fillStyle = '#b4565e';
                     ctx.beginPath(); ctx.ellipse(mx, my + ry * 0.85, rx * 0.65, ry * 0.4, 0, 0, Math.PI * 2); ctx.fill();
                 }
-                ctx.strokeStyle = 'rgba(120,70,70,0.55)'; ctx.lineWidth = 0.9;
+                ctx.strokeStyle = 'rgba(120,70,70,0.55)'; ctx.lineWidth = 0.9 * K;
                 ctx.beginPath(); ctx.ellipse(mx, my + ry * 0.4, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
             }
-            // Bords de la photo estompés : le fond de l'image se fond dans celui de la page
-            ctx.globalCompositeOperation = 'destination-in';
-            ctx.save();
-            ctx.translate(IW / 2, 165); ctx.scale(0.62, 1);
-            const m = ctx.createRadialGradient(0, 0, 135, 0, 0, 172);
-            m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = m; ctx.fillRect(-300, -300, 600, 600);
             ctx.restore();
-            ctx.restore();
-            drawGlow();
         }
 
         function frame(now) {

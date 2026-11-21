@@ -39,11 +39,12 @@
     let headName = (function () { try { return localStorage.getItem('avatar-tete') || 'lapin'; } catch (e) { return 'lapin'; } })();
     if (!HEADS[headName]) headName = 'lapin';
     let face = HEADS[headName](el.face);
+    document.body.classList.toggle('lapin', headName === 'lapin');
     el.head.textContent = HEAD_LABEL[headName];
     el.head.addEventListener('click', () => {
         headName = headName === 'lapin' ? 'marie' : 'lapin';
         try { localStorage.setItem('avatar-tete', headName); } catch (e) { /* stockage indisponible */ }
-        face.stop(); face = HEADS[headName](el.face);
+        face.stop(); document.body.classList.toggle('lapin', headName === 'lapin'); face = HEADS[headName](el.face);
         face.setState(S.state === 'transcribing' ? 'thinking' : S.state);
         el.head.textContent = HEAD_LABEL[headName];
     });
