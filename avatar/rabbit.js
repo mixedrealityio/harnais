@@ -4,12 +4,12 @@
 (function () {
     'use strict';
     const IMG = 'lapin.png';   // photo détourée (fond retiré)
-    const K = 3.3;                                  // échelle des détails dessinés (billes, bouche) par rapport à la première photo
-    const IW = 944, IH = 1116;                      // taille de l'image
-    const BOX = [268, 129, 697, 986];               // cadre du lapin dans l'image
-    const EYES = [[412.7, 463.3], [562.3, 463.3]];  // billes noires
-    const EYE_R = 21;
-    const MOUTH = [488, 540];                       // sous le museau
+    const K = 5.8;                                  // échelle des détails dessinés (paupières, bouche) par rapport à la première photo
+    const IW = 1000, IH = 1541;                     // taille de l'image
+    const BOX = [92, 5, 859, 1534];                 // cadre du lapin dans l'image
+    const EYES = [[353.5, 601.5], [617.5, 602.5]];  // billes noires
+    const EYE_R = 37;
+    const MOUTH = [495, 748];                       // sous le museau
     const RESERVE_CSS = 210;                        // hauteur gardée en bas pour le texte et les boutons                       // sous le museau
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const lerp = (a, b, t) => a + (b - a) * t;
@@ -18,14 +18,18 @@
     function Rabbit(canvas) {
         const ctx = canvas.getContext('2d');
         const img = new Image();
-        let ready = false, fur = 'rgb(216,205,188)';
+        let ready = false, furEyes = ['rgb(214,204,190)', 'rgb(214,204,190)'];
         img.onload = () => {
             ready = true;
-            try {   // couleur du pelage entre les yeux, pour les paupières
+            try {   // couleur du pelage juste au-dessus de chaque œil, pour les paupières
                 const c = document.createElement('canvas'); c.width = c.height = 1;
-                c.getContext('2d').drawImage(img, 486, 440, 12, 12, 0, 0, 1, 1);
-                const d = c.getContext('2d').getImageData(0, 0, 1, 1).data;
-                fur = `rgb(${d[0]},${d[1]},${d[2]})`;
+                const g = c.getContext('2d');
+                furEyes = EYES.map(([x, y]) => {
+                    g.clearRect(0, 0, 1, 1);
+                    g.drawImage(img, x - 14, y - EYE_R * 1.9, 28, 20, 0, 0, 1, 1);
+                    const d = g.getImageData(0, 0, 1, 1).data;
+                    return `rgb(${d[0]},${d[1]},${d[2]})`;
+                });
             } catch (e) { /* pelage par défaut */ }
         };
         img.src = IMG;
@@ -94,14 +98,22 @@
             ctx.translate(-px, -py);
             ctx.drawImage(img, 0, 0, IW, IH);
 
-            // Paupières : le pelage recouvre les billes, avec un trait fin
+            // Paupières : le pelage descend sur chaque bille depuis le haut, avec un trait fin quand l'œil est fermé
             if (s.blink > 0.02) {
-                EYES.forEach(([x, y]) => {
-                    ctx.fillStyle = fur;
-                    ctx.beginPath(); ctx.ellipse(x, y, EYE_R + 1.6 * K, (EYE_R + 1.6 * K) * clamp(s.blink * 1.15, 0, 1), 0, 0, Math.PI * 2); ctx.fill();
-                    if (s.blink > 0.6) {
-                        ctx.strokeStyle = 'rgba(90,75,62,0.7)'; ctx.lineWidth = 1.1 * K; ctx.lineCap = 'round';
-                        ctx.beginPath(); ctx.moveTo(x - EYE_R, y); ctx.quadraticCurveTo(x, y + 2.4 * K, x + EYE_R, y); ctx.stroke();
+                EYES.forEach(([x, y], i) => {
+                    const rx = EYE_R * 1.18, ry = EYE_R * 1.28;
+                    ctx.save();
+                    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.clip();
+                    const cover = clamp(s.blink * 1.1, 0, 1) * ry * 2;
+                    ctx.fillStyle = furEyes[i];
+                    ctx.fillRect(x - rx, y - ry - 1, rx * 2, cover + 1);
+                    // Texture : le poil juste au-dessus de l'œil, recopié sur la paupière
+                    if (cover > 2) ctx.drawImage(img, x - rx, y - ry - cover - 8, rx * 2, cover, x - rx, y - ry, rx * 2, cover);
+                    ctx.restore();
+                    if (s.blink > 0.55) {
+                        ctx.strokeStyle = 'rgba(95,80,68,0.75)'; ctx.lineWidth = 1.2 * K; ctx.lineCap = 'round';
+                        const ly = y - ry + cover;
+                        ctx.beginPath(); ctx.moveTo(x - EYE_R * 0.95, ly - 1); ctx.quadraticCurveTo(x, ly + 0.7 * K * 1.5, x + EYE_R * 0.95, ly - 1); ctx.stroke();
                     }
                 });
             }
