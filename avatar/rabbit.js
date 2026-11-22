@@ -10,9 +10,9 @@
     const BOX = [92, 5, 859, 1534];                 // cadre du lapin dans l'image
     const EYES = [[353.5, 601.5], [617.5, 602.5]];  // billes noires
     const EYE_R = 37;
-    const MOUTH = [495, 748];                       // sous le museau
+    const MOUTH = [488, 748];                       // sous le museau, sur l'axe du visage (milieu des yeux ≈ 485, nez ≈ 490)
     const PIVOT = { L: [320, 310], R: [655, 310] }; // base de chaque oreille
-    const JAW = { x: 380, y: 700, w: 230, h: 105 }; // bas du museau, qui descend quand la bouche s'ouvre
+    const JAW = { x: 373, y: 700, w: 230, h: 105 }; // bas du museau, qui descend quand la bouche s'ouvre
     const RESERVE_CSS = 210;                        // hauteur gardée en bas pour le texte et les boutons
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const lerp = (a, b, t) => a + (b - a) * t;
@@ -67,7 +67,7 @@
             tilt: 0, ttilt: 0, nod: 0, nodV: 0, bounce: 0, listenLevel: 0, t: 0,
             swayPhase: rnd(0, 6), swayEnergy: 0, bodyRot: 0, bodyRotPrev: 0,
             ear: { L: { a: 0, v: 0 }, R: { a: 0, v: 0 } }, earTwitchT: rnd(3, 7),
-            pet: 0, petTotal: 0
+            pet: 0, petTotal: 0, hearts: [], heartT: 0
         };
         let dpr = 1, last = performance.now(), running = true, petCb = null;
         let view = { cx0: 0, cy0: 0, sc: 1, cx: 0, cy: 0 };   // pour convertir un point de l'écran en point de l'image
@@ -101,6 +101,14 @@
             }
             return null;
         }
+        function spawnHearts(X, Y, gain) {
+            if (s.t < s.heartT) return;
+            s.heartT = s.t + clamp(0.16 - gain * 0.06, 0.07, 0.16);
+            if (s.hearts.length > 40) return;
+            const cols = ['#ff5c8a', '#ff8fab', '#ff3b6b', '#ffb3c6', '#ff7aa2'];
+            s.hearts.push({ x: X + rnd(-18, 18) * dpr, y: Y - rnd(6, 24) * dpr, age: 0, life: rnd(1.3, 2.1), size: rnd(9, 19) * dpr,
+                vy: rnd(55, 95) * dpr, wob: rnd(10, 26) * dpr, ph: rnd(0, 6.3), col: cols[Math.floor(Math.random() * cols.length)], rot: rnd(-0.35, 0.35) });
+        }
         let pressed = false, lastPt = null;
         function onMove(ev) {
             if (!ready) return;
@@ -112,7 +120,9 @@
                 const gain = clamp(dist / 40, 0, 1.2);
                 s.pet = clamp(s.pet + gain * 0.5, 0, 1);
                 s.petTotal += gain * 0.16;
-                s.ear[side].v += (ev.clientX - lastPt[0] >= 0 ? 1 : -1) * gain * 1.6;   // le poil suit le doigt
+                const r0 = canvas.getBoundingClientRect();
+                spawnHearts((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, gain);
+                s.ear[side].v += (ev.clientX - lastPt[0] >= 0 ? 1 : -1) * gain * 1.0;   // le poil suit le doigt
                 if (petCb && s.petTotal > 1.6) { petCb(s.petTotal); s.petTotal = 0; }
             }
             lastPt = [ev.clientX, ev.clientY];
@@ -133,9 +143,8 @@
             s.ttilt = st === 'thinking' ? -0.07 : st === 'user' ? 0.05 + s.listenLevel * 0.04 : 0;
             s.tilt = lerp(s.tilt, s.ttilt, k(3.5));
             // Bouche : voix, petite respiration des lèvres à l'écoute, pulsation sur les « hm »
-            const idleMouth = st === 'user' ? 0.07 + 0.06 * Math.sin(s.t * 3.3) : st === 'thinking' ? 0.04 * (1 + Math.sin(s.t * 2)) : 0.02 * (1 + Math.sin(s.t * 1.4));
             s.pulse = Math.max(0, s.pulse - dt * 3.2);
-            const target = Math.max(s.mouthOpen, s.pulse * 0.45, idleMouth);
+            const target = s.mouthOpen;   // seulement la voix : rien n'est visible quand il ne parle pas
             s.mOpen = lerp(s.mOpen, target, k(34));
             s.mWide = lerp(s.mWide, s.mouthWide, k(20));
             s.bounce = lerp(s.bounce, st === 'speaking' ? s.mOpen : 0, k(18));
@@ -163,11 +172,15 @@
             ['L', 'R'].forEach((side) => {
                 const e = s.ear[side], out = side === 'L' ? -1 : 1;
                 let pose = st === 'user' ? out * 0.07 : st === 'thinking' ? (side === 'L' ? -0.05 : 0.16) : out * 0.015;
-                pose += out * s.pet * 0.1;                                   // caresse : oreilles un peu en arrière, détendues
-                const wiggle = s.pet * 0.09 * Math.sin(s.t * 17 + (side === 'L' ? 0 : 1.7));
+                pose += out * s.pet * 0.05;                                   // caresse : oreilles un peu en arrière, détendues
+                const wiggle = s.pet * 0.05 * Math.sin(s.t * 17 + (side === 'L' ? 0 : 1.7));
                 const acc = -150 * (e.a - pose) - 11 * e.v - bodyVel * 1.1 + wiggle * 40 + (st === 'speaking' ? Math.sin(s.t * 9 + (side === 'L' ? 0 : 2)) * s.mOpen * 4 : 0);
                 e.v += acc * dt; e.a += e.v * dt;
+                e.a = clamp(e.a, -0.11, 0.11);   // amplitude limitée : l'oreille reste attachée à la tête
             });
+            // Cœurs qui s'envolent
+            for (const hh of s.hearts) { hh.age += dt; hh.y -= hh.vy * dt; hh.x += Math.cos(hh.age * 3.2 + hh.ph) * hh.wob * dt; }
+            s.hearts = s.hearts.filter(hh => hh.age < hh.life);
             // Clignements
             s.blinkT -= dt;
             if (s.blinkT <= 0 && s.blinkPhase < 0) s.blinkPhase = 0;
@@ -245,7 +258,7 @@
 
             // Mâchoire : le bas du museau descend et s'étire avec la voix
             const open = s.mOpen;
-            if (jawPatch && open > 0.05) {
+            if (jawPatch && open > 0.08) {
                 ctx.save();
                 ctx.translate(JAW.x + JAW.w / 2, JAW.y + JAW.h * 0.3);
                 ctx.scale(1 + open * 0.015, 1 + open * 0.07);
@@ -254,18 +267,8 @@
                 ctx.drawImage(jawPatch, -JAW.w / 2, -JAW.h * 0.3);
                 ctx.restore();
             }
-            // Sourire discret : à l'écoute, sous les caresses ; bouche fermée
-            const smile = clamp(Math.max(s.pet * 1.2, s.state === 'user' ? 0.55 : 0.18) * (1 - open * 4), 0, 1);
-            if (smile > 0.02) {
-                const [mx, my] = MOUTH;
-                ctx.save();
-                ctx.strokeStyle = `rgba(110,72,66,${0.28 * smile + 0.1})`; ctx.shadowColor = 'rgba(110,72,66,0.5)'; ctx.shadowBlur = 8;
-                ctx.lineWidth = 3.4; ctx.lineCap = 'round';
-                ctx.beginPath(); ctx.moveTo(mx - 38 - smile * 10, my - 6 - smile * 6); ctx.quadraticCurveTo(mx, my + 10 + smile * 10, mx + 38 + smile * 10, my - 6 - smile * 6); ctx.stroke();
-                ctx.restore();
-            }
             // Ombre de la bouche : s'ouvre et s'élargit avec la voix, suit la mâchoire
-            if (open > 0.04) {
+            if (open > 0.08) {
                 const [mx, my0] = MOUTH;
                 const my = my0 + open * 8;
                 const rx = (2.2 + s.mWide * 1.9 + open * 0.8) * K, ry = (0.8 + open * 4.6) * K;
@@ -288,6 +291,22 @@
                 ctx.restore();
             }
             ctx.restore();
+            // Cœurs : légèrement penchés, grossissent un peu en montant, s'effacent à la fin
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            for (const hh of s.hearts) {
+                const u = hh.age / hh.life;
+                const al = clamp(Math.min(hh.age / 0.15, 1) * (1 - u * u), 0, 1);
+                const z = hh.size * (0.7 + 0.5 * Math.min(u * 2, 1));
+                ctx.save();
+                ctx.translate(hh.x, hh.y); ctx.rotate(hh.rot + Math.sin(hh.age * 3 + hh.ph) * 0.2);
+                ctx.globalAlpha = al; ctx.fillStyle = hh.col; ctx.shadowColor = 'rgba(255,90,140,0.6)'; ctx.shadowBlur = z * 0.6;
+                ctx.beginPath();
+                ctx.moveTo(0, z * 0.38);
+                ctx.bezierCurveTo(z * 0.95, -z * 0.15, z * 0.55, -z * 0.95, 0, -z * 0.42);
+                ctx.bezierCurveTo(-z * 0.55, -z * 0.95, -z * 0.95, -z * 0.15, 0, z * 0.38);
+                ctx.fill();
+                ctx.restore();
+            }
         }
 
         function frame(now) {
@@ -306,7 +325,7 @@
             setListenLevel(v) { s.listenLevel = lerp(s.listenLevel, clamp(v, 0, 1), 0.25); },
             nod(strength) { s.nodV = -(strength || 1) * 6; s.pulse = 1; },
             onPet(cb) { petCb = cb; },
-            _pet(side) { s.pet = 1; s.ear[side].v += 3; },   // essais : simule une caresse
+            _pet(side) { s.pet = 1; s.ear[side].v += 3; const ix = side === 'L' ? 230 : 730, iy = 170; for (let i = 0; i < 6; i++) { s.heartT = 0; spawnHearts(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 1); s.hearts[s.hearts.length - 1].age = i * 0.2; } },   // essais : simule une caresse
             _state: s,
             stop() { running = false; window.removeEventListener('resize', resize); if (ro) ro.disconnect(); }
         };
