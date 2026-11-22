@@ -14,11 +14,11 @@
     // sans changer sa hauteur (étirement temporel) pour que la voix parle plus lentement qu'une lecture accélérée.
     // Garçon : voix masculine « Paul » (lit le français avec un léger accent), hauteur +30 %.
     const VOICES = {
-        garcon: { id: 'en_paul_happy', pitch: 1.45, speed: 0.9, label: 'Voix : garçon' },
-        fille: { id: 'fr_marie_happy', pitch: 1.17, speed: 0.92, label: 'Voix : fille' },
+        garcon: { id: 'en_paul_happy', pitch: 1.6, speed: 0.92, label: 'Voix : garçon' },
+        fille: { id: 'fr_marie_happy', pitch: 1.3, speed: 0.92, label: 'Voix : fille' },
         adulte: { id: 'fr_marie_neutral', pitch: 1, speed: 0.95, label: 'Voix : adulte' },
         // Voix clonée à partir d'un enregistrement de l'utilisateur (ref_audio de Mistral, sans accent), jouée plus aiguë
-        clone: { id: null, pitch: 1.3, speed: 0.9, label: 'Voix : enregistrée' }
+        clone: { id: null, pitch: 1.45, speed: 0.92, label: 'Voix : enregistrée' }
     };
     const refAudio = () => { try { return localStorage.getItem('avatar-ref-b64') || ''; } catch (e) { return ''; } };
     const voiceOrder = () => ['garcon', 'fille', 'adulte'].concat(refAudio() ? ['clone'] : []);
@@ -28,7 +28,7 @@
     if (!VOICES[voiceKind] || (voiceKind === 'clone' && !refAudio())) voiceKind = 'garcon';
     const voice = () => {
         const v = VOICES[voiceKind];
-        return { ...v, pitch: Math.max(0.8, Math.min(1.9, v.pitch + (pitchAdj[voiceKind] || 0))) };
+        return { ...v, pitch: Math.max(0.8, Math.min(2.3, v.pitch + (pitchAdj[voiceKind] || 0))) };
     };
     // Corps de la requête de voix : voix intégrée, ou voix clonée à partir de l'enregistrement
     function ttsBody(text) {
@@ -49,7 +49,7 @@
     const HISTORY_MAX = 24;
     const BACKCHANNELS = ['D\'accord.', 'Je vois.', 'Oui.'];
 
-    const SYSTEM_PROMPT = [
+    const SYSTEM_BASE = [
         'Tu t\'appelles David Twenty. Tu es un avatar vocal chaleureux et naturel ; si on te demande ton nom, tu réponds « David Twenty ». Tu parles français, à l\'oral, en face à face avec une personne.',
         'Réponds en une à trois phrases courtes, comme dans une vraie conversation : pas de liste, pas de markdown, pas d\'emoji, pas de symbole.',
         'Écris tout ce qui se dit à voix haute en toutes lettres : « onze à douze degrés », « vingt-trois pour cent ».',
@@ -57,10 +57,21 @@
         'Si la personne t\'a interrompue, reprends simplement avec ce qu\'elle vient de dire. Quand des résultats de recherche web te sont fournis, appuie-toi dessus en une ou deux phrases : ne lis jamais d\'adresse, de numéro de source ni de liste de liens, cite au besoin le nom du site. Sans résultats fournis, tu n\'as pas accès à Internet : dis-le si on te demande une information récente.'
     ].join(' ');
 
+    // Profil de David Twenty : qui il est, ce qu'il sait, ses liens. Modifiable avec le bouton « Profil », gardé dans le navigateur.
+    const PROFILE_DEFAULT = [
+        'Tu es brillant : très fort en mathématiques et en physique, et en réalité en tout.',
+        'Tu as réussi le concours de mathématiques B, ce qui t\'a mené à devenir très riche. Tu es aujourd\'hui le directeur de l\'école de mathématiques B.',
+        'Tu protèges Abi Baby, à qui tu tiens beaucoup : tu es bienveillant avec elle et attentif à son bien-être ; si c\'est la personne qui te parle, montre-le avec tendresse.',
+        'Tu es sûr de toi sans être prétentieux : tu ne te vantes pas à chaque phrase, tu ne parles de ton parcours que si on t\'interroge ou si cela aide.',
+        'Quand on te pose une question de maths ou de physique, explique à l\'oral, simplement et étape par étape, en disant les formules en toutes lettres, comme un excellent professeur qui veut se faire comprendre.'
+    ].join(' ');
+    const getProfile = () => { try { return localStorage.getItem('avatar-profil') || PROFILE_DEFAULT; } catch (e) { return PROFILE_DEFAULT; } };
+    const systemPrompt = () => SYSTEM_BASE + '\n\nTon profil, que tu incarnes naturellement sans le réciter : ' + getProfile() + ' N\'invente aucun autre fait précis sur ta vie ou sur tes proches (pas de famille, de dates ni de lieux) : si on te le demande, réponds simplement que tu préfères ne pas en dire plus.'
+
     // ---------- Éléments ----------
     const $ = (id) => document.getElementById(id);
     const el = { face: $('face'), status: $('status'), capUser: $('cap-user'), capBot: $('cap-bot'),
-        pitchUp: $('pitch-up'), pitchDown: $('pitch-down'), pitchInfo: $('pitch-info'), rec: $('rec'), micsel: $('micsel'), mic: $('mic'), meter: $('meter-bar'), head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
+        profilBtn: $('profil-btn'), profilBox: $('profil'), profilText: $('profil-text'), profilSave: $('profil-save'), profilReset: $('profil-reset'), pitchUp: $('pitch-up'), pitchDown: $('pitch-down'), pitchInfo: $('pitch-info'), rec: $('rec'), micsel: $('micsel'), mic: $('mic'), meter: $('meter-bar'), head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
     const HEADS = { lapin: window.AvatarRabbit, marie: window.AvatarFace };
     const HEAD_LABEL = { lapin: 'Tête : lapin', marie: 'Tête : visage' };
     let headName = (function () { try { return localStorage.getItem('avatar-tete') || 'lapin'; } catch (e) { return 'lapin'; } })();
@@ -77,8 +88,8 @@
         el.pitchInfo.textContent = 'hauteur ×' + v.pitch.toFixed(2);
         S.bcBuffers = []; S.bcStarted = false;
     }
-    el.pitchUp.addEventListener('click', () => changePitch(0.07));
-    el.pitchDown.addEventListener('click', () => changePitch(-0.07));
+    el.pitchUp.addEventListener('click', () => changePitch(0.1));
+    el.pitchDown.addEventListener('click', () => changePitch(-0.1));
     el.pitchInfo.textContent = 'hauteur ×' + voice().pitch.toFixed(2);
     el.voiceBtn.addEventListener('click', () => {
         const order = voiceOrder();
@@ -427,7 +438,7 @@
                 method: 'POST', signal: abort.signal,
                 headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + mistralKey() },
                 body: JSON.stringify({ model, stream: true, max_tokens: 220, temperature: 0.7, ...(web ? { web_search: true, web_voice: true } : {}),
-                    messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...S.history] })
+                    messages: [{ role: 'system', content: systemPrompt() }, ...S.history] })
             }, 1, web ? '..' : 'https://api.mistral.ai');
             if (res.status !== 429) return res;
             poolUse[model] = { win: minuteId(), n: PER_MODEL_PER_MIN };   // ce modèle est épuisé pour cette minute
@@ -821,6 +832,20 @@
         }
     }
     el.rec.addEventListener('click', recordVoice);
+    // Profil : s'applique à la prochaine réponse
+    el.profilBtn.addEventListener('click', () => {
+        el.profilBox.hidden = !el.profilBox.hidden;
+        if (!el.profilBox.hidden) el.profilText.value = getProfile();
+    });
+    el.profilSave.addEventListener('click', () => {
+        try { localStorage.setItem('avatar-profil', el.profilText.value.trim() || PROFILE_DEFAULT); } catch (e) { /* stockage indisponible */ }
+        el.profilBox.hidden = true;
+        el.capUser.textContent = 'Profil enregistré : il s\'applique à la prochaine réponse.';
+    });
+    el.profilReset.addEventListener('click', () => {
+        try { localStorage.removeItem('avatar-profil'); } catch (e) { /* stockage indisponible */ }
+        el.profilText.value = PROFILE_DEFAULT;
+    });
     el.micsel.addEventListener('change', () => {
         micChoice = el.micsel.value;
         try { localStorage.setItem('avatar-micro', micChoice); } catch (e) { /* stockage indisponible */ }

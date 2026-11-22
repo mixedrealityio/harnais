@@ -27,3 +27,8 @@ body.lapin button { text-shadow: none; }
 #micsel { background: #1d2130; color: var(--fg); border: 1px solid #2c3247; border-radius: 8px; font: 11px/1.2 inherit; padding: 3px 6px; max-width: 220px; }
 #micsel[hidden] { display: none; }
 #pitch-info { align-self: center; font-size: 11px; color: var(--mut); }
+#profil { width: 100%; max-width: 560px; }
+#profil[hidden] { display: none; }
+#profil textarea { width: 100%; box-sizing: border-box; background: #0d1018; color: var(--fg); border: 1px solid #2c3247; border-radius: 10px; padding: 10px; font: 13px/1.4 inherit; resize: vertical; }
+#profil div { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
+body.lapin #profil { position: relative; z-index: 2; }
