@@ -1,41 +1,77 @@
-// rabbit.js — tête « photo » animée : le lapin en peluche bouge comme une marionnette (balancement, respiration,
-// hochements, rebond avec la voix), cligne des yeux et ouvre une petite bouche calée sur la voix.
-// Même interface que face.js : setState, setMouth, setListenLevel, nod, stop.
+// rabbit.js — tête « photo » vivante : le lapin en peluche se balance, respire, cligne des yeux, bouge la mâchoire avec la voix,
+// et réagit aux caresses sur ses oreilles (glisser le doigt ou la souris dessus : elles frétillent, il plisse les yeux et sourit).
+// Photo découpée en trois calques : le corps et chaque oreille, pour que les oreilles bougent indépendamment.
+// Même interface que face.js : setState, setMouth, setListenLevel, nod, stop ; en plus onPet(callback).
 (function () {
     'use strict';
-    const IMG = 'lapin.png';   // photo détourée (fond retiré)
-    const K = 5.8;                                  // échelle des détails dessinés (paupières, bouche) par rapport à la première photo
-    const IW = 1000, IH = 1541;                     // taille de l'image
+    const SRC = { body: 'lapin_corps.png', earL: 'oreille_g.png', earR: 'oreille_d.png' };
+    const K = 5.8;                                  // échelle des détails dessinés (paupières, bouche)
+    const IW = 1000, IH = 1541;                     // taille des images
     const BOX = [92, 5, 859, 1534];                 // cadre du lapin dans l'image
     const EYES = [[353.5, 601.5], [617.5, 602.5]];  // billes noires
     const EYE_R = 37;
     const MOUTH = [495, 748];                       // sous le museau
-    const RESERVE_CSS = 210;                        // hauteur gardée en bas pour le texte et les boutons                       // sous le museau
+    const PIVOT = { L: [320, 310], R: [655, 310] }; // base de chaque oreille
+    const JAW = { x: 380, y: 700, w: 230, h: 105 }; // bas du museau, qui descend quand la bouche s'ouvre
+    const RESERVE_CSS = 210;                        // hauteur gardée en bas pour le texte et les boutons
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const lerp = (a, b, t) => a + (b - a) * t;
     const rnd = (a, b) => a + Math.random() * (b - a);
 
     function Rabbit(canvas) {
         const ctx = canvas.getContext('2d');
-        const img = new Image();
-        let ready = false, furEyes = ['rgb(214,204,190)', 'rgb(214,204,190)'];
-        img.onload = () => {
-            ready = true;
-            try {   // couleur du pelage juste au-dessus de chaque œil, pour les paupières
-                const c = document.createElement('canvas'); c.width = c.height = 1;
-                const g = c.getContext('2d');
-                furEyes = EYES.map(([x, y]) => {
-                    g.clearRect(0, 0, 1, 1);
-                    g.drawImage(img, x - 14, y - EYE_R * 1.9, 28, 20, 0, 0, 1, 1);
-                    const d = g.getImageData(0, 0, 1, 1).data;
-                    return `rgb(${d[0]},${d[1]},${d[2]})`;
+        const img = {};
+        let loaded = 0, ready = false, jawPatch = null;
+        const earAlpha = { L: null, R: null };
+        const furEyes = ['rgb(214,204,190)', 'rgb(214,204,190)'];
+        Object.entries(SRC).forEach(([k, url]) => {
+            const im = new Image();
+            im.onload = () => { if (++loaded === 3) prepare(); };
+            im.src = url;
+            img[k] = im;
+        });
+        function prepare() {
+            try {
+                // Bas du museau détaché, bords fondus : il descend avec la voix sans laisser de contour
+                jawPatch = document.createElement('canvas'); jawPatch.width = JAW.w; jawPatch.height = JAW.h;
+                const g = jawPatch.getContext('2d');
+                g.drawImage(img.body, JAW.x, JAW.y, JAW.w, JAW.h, 0, 0, JAW.w, JAW.h);
+                g.globalCompositeOperation = 'destination-in';
+                g.save(); g.translate(JAW.w / 2, JAW.h / 2); g.scale(JAW.w / JAW.h, 1);
+                const m = g.createRadialGradient(0, 0, JAW.h * 0.18, 0, 0, JAW.h * 0.62);
+                m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(1, 'rgba(0,0,0,0)');
+                g.fillStyle = m; g.fillRect(-JAW.w, -JAW.h, JAW.w * 2, JAW.h * 2); g.restore();
+                // Masques des oreilles (1/4 de taille) pour savoir si un doigt les touche
+                ['L', 'R'].forEach((side) => {
+                    const c = document.createElement('canvas'); c.width = IW / 4; c.height = Math.round(IH / 4);
+                    const cg = c.getContext('2d');
+                    cg.drawImage(img[side === 'L' ? 'earL' : 'earR'], 0, 0, c.width, c.height);
+                    earAlpha[side] = cg.getImageData(0, 0, c.width, c.height);
                 });
-            } catch (e) { /* pelage par défaut */ }
+                // Pelage au-dessus de chaque œil
+                const c1 = document.createElement('canvas'); c1.width = c1.height = 1;
+                const g1 = c1.getContext('2d');
+                EYES.forEach(([x, y], i) => {
+                    g1.clearRect(0, 0, 1, 1);
+                    g1.drawImage(img.body, x - 14, y - EYE_R * 1.9, 28, 20, 0, 0, 1, 1);
+                    const d = g1.getImageData(0, 0, 1, 1).data;
+                    furEyes[i] = `rgb(${d[0]},${d[1]},${d[2]})`;
+                });
+            } catch (e) { /* sans canvas lisible : pas de caresses, le reste fonctionne */ }
+            ready = true;
+        }
+
+        const s = {
+            state: 'idle', mouthOpen: 0, mouthWide: 0.5, mOpen: 0, mWide: 0.5, pulse: 0,
+            blink: 0, blinkT: rnd(1.5, 4), blinkPhase: -1, squint: 0,
+            tilt: 0, ttilt: 0, nod: 0, nodV: 0, bounce: 0, listenLevel: 0, t: 0,
+            swayPhase: rnd(0, 6), swayEnergy: 0, bodyRot: 0, bodyRotPrev: 0,
+            ear: { L: { a: 0, v: 0 }, R: { a: 0, v: 0 } }, earTwitchT: rnd(3, 7),
+            pet: 0, petTotal: 0
         };
-        img.src = IMG;
-        const s = { state: 'idle', mouthOpen: 0, mouthWide: 0.5, mOpen: 0, mWide: 0.5, blink: 0, blinkT: rnd(1.5, 4), blinkPhase: -1,
-            tilt: 0, ttilt: 0, nod: 0, nodV: 0, bounce: 0, listenLevel: 0, sway: 0, t: 0 };
-        let dpr = 1, last = performance.now(), running = true;
+        let dpr = 1, last = performance.now(), running = true, petCb = null;
+        let view = { cx0: 0, cy0: 0, sc: 1, cx: 0, cy: 0 };   // pour convertir un point de l'écran en point de l'image
+
         function resize() {
             const r = canvas.getBoundingClientRect();
             dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -43,28 +79,102 @@
             canvas.height = Math.max(1, Math.round(r.height * dpr));
         }
         window.addEventListener('resize', resize);
-        // Le cadre du canvas change aussi sans que la fenêtre bouge (boutons, journal, mode lapin) : sinon l'image est écrasée
         let ro = null;
         if (window.ResizeObserver) { ro = new ResizeObserver(resize); ro.observe(canvas); }
         resize();
 
+        // --- Caresses : le doigt (ou la souris) glisse sur une oreille ---
+        function toImage(ev) {
+            const r = canvas.getBoundingClientRect();
+            const X = (ev.clientX - r.left) * dpr, Y = (ev.clientY - r.top) * dpr;
+            return [(X - view.cx0) / view.sc + view.cx, (Y - view.cy0) / view.sc + view.cy];
+        }
+        function earAt(ix, iy) {
+            for (const side of ['L', 'R']) {
+                const d = earAlpha[side];
+                if (!d) continue;
+                const qx = Math.round(ix / 4), qy = Math.round(iy / 4);
+                for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) {   // marge : un doigt est plus large qu'un pixel
+                    const x = qx + dx, y = qy + dy;
+                    if (x >= 0 && y >= 0 && x < d.width && y < d.height && d.data[(y * d.width + x) * 4 + 3] > 40) return side;
+                }
+            }
+            return null;
+        }
+        let pressed = false, lastPt = null;
+        function onMove(ev) {
+            if (!ready) return;
+            const [ix, iy] = toImage(ev);
+            const side = earAt(ix, iy);
+            const active = pressed || ev.pointerType === 'mouse';
+            if (side && active && lastPt) {
+                const dist = Math.hypot(ev.clientX - lastPt[0], ev.clientY - lastPt[1]);
+                const gain = clamp(dist / 40, 0, 1.2);
+                s.pet = clamp(s.pet + gain * 0.5, 0, 1);
+                s.petTotal += gain * 0.16;
+                s.ear[side].v += (ev.clientX - lastPt[0] >= 0 ? 1 : -1) * gain * 1.6;   // le poil suit le doigt
+                if (petCb && s.petTotal > 1.6) { petCb(s.petTotal); s.petTotal = 0; }
+            }
+            lastPt = [ev.clientX, ev.clientY];
+        }
+        canvas.addEventListener('pointerdown', (ev) => { pressed = true; lastPt = [ev.clientX, ev.clientY]; try { canvas.setPointerCapture(ev.pointerId); } catch (e) { /* non pris en charge */ } });
+        canvas.addEventListener('pointermove', onMove);
+        const release = () => { pressed = false; lastPt = null; };
+        canvas.addEventListener('pointerup', release);
+        canvas.addEventListener('pointercancel', release);
+        canvas.addEventListener('pointerleave', () => { if (!pressed) lastPt = null; });
+        canvas.style.touchAction = 'none';
+
+        // --- Comportement ---
         function update(dt) {
             s.t += dt;
             const st = s.state;
-            s.ttilt = st === 'thinking' ? -0.05 : st === 'user' ? 0.035 + s.listenLevel * 0.03 : 0;
             const k = (r) => 1 - Math.exp(-r * dt);
-            s.mOpen = lerp(s.mOpen, s.mouthOpen, k(28));
+            s.ttilt = st === 'thinking' ? -0.07 : st === 'user' ? 0.05 + s.listenLevel * 0.04 : 0;
+            s.tilt = lerp(s.tilt, s.ttilt, k(3.5));
+            // Bouche : voix, petite respiration des lèvres à l'écoute, pulsation sur les « hm »
+            const idleMouth = st === 'user' ? 0.07 + 0.06 * Math.sin(s.t * 3.3) : st === 'thinking' ? 0.04 * (1 + Math.sin(s.t * 2)) : 0.02 * (1 + Math.sin(s.t * 1.4));
+            s.pulse = Math.max(0, s.pulse - dt * 3.2);
+            const target = Math.max(s.mouthOpen, s.pulse * 0.45, idleMouth);
+            s.mOpen = lerp(s.mOpen, target, k(34));
             s.mWide = lerp(s.mWide, s.mouthWide, k(20));
-            s.tilt = lerp(s.tilt, s.ttilt, k(4));
             s.bounce = lerp(s.bounce, st === 'speaking' ? s.mOpen : 0, k(18));
+            // Hochement
             s.nodV += (-s.nod * 80 - s.nodV * 10) * dt;
             s.nod += s.nodV * dt;
+            // Caresses : montent vite, retombent doucement
+            s.pet = Math.max(0, s.pet - dt * 0.45);
+            s.squint = lerp(s.squint, s.pet > 0.12 ? 0.6 + 0.2 * Math.sin(s.t * 6) : 0, k(9));
+            // Balancement : l'énergie monte avec la parole et les caresses
+            const want = st === 'speaking' ? 0.45 + s.mOpen * 0.6 : st === 'user' ? 0.35 : st === 'thinking' ? 0.2 : 0.25;
+            s.swayEnergy = lerp(s.swayEnergy, clamp(want + s.pet * 1.1, 0, 1.6), k(2.5));
+            s.swayPhase += dt * (1.55 + s.swayEnergy * 0.9 + s.pet * 3.2);
+            const w = s.swayPhase;
+            s.bodyRotPrev = s.bodyRot;
+            s.bodyRot = Math.sin(w) * (0.02 + 0.026 * s.swayEnergy) + Math.sin(w * 2.3 + 1) * 0.006 * s.swayEnergy;
+            // Oreilles : ressort vers une pose (dressées à l'écoute, penchées en réflexion), retard sur le balancement, frétillement
+            s.earTwitchT -= dt;
+            if (s.earTwitchT <= 0) {
+                s.earTwitchT = rnd(3.5, 8);
+                const side = Math.random() < 0.5 ? 'L' : 'R';
+                s.ear[side].v += (side === 'L' ? -1 : 1) * rnd(1.4, 2.4);
+            }
+            const bodyVel = (s.bodyRot - s.bodyRotPrev) / Math.max(dt, 1e-3);
+            ['L', 'R'].forEach((side) => {
+                const e = s.ear[side], out = side === 'L' ? -1 : 1;
+                let pose = st === 'user' ? out * 0.07 : st === 'thinking' ? (side === 'L' ? -0.05 : 0.16) : out * 0.015;
+                pose += out * s.pet * 0.1;                                   // caresse : oreilles un peu en arrière, détendues
+                const wiggle = s.pet * 0.09 * Math.sin(s.t * 17 + (side === 'L' ? 0 : 1.7));
+                const acc = -150 * (e.a - pose) - 11 * e.v - bodyVel * 1.1 + wiggle * 40 + (st === 'speaking' ? Math.sin(s.t * 9 + (side === 'L' ? 0 : 2)) * s.mOpen * 4 : 0);
+                e.v += acc * dt; e.a += e.v * dt;
+            });
+            // Clignements
             s.blinkT -= dt;
             if (s.blinkT <= 0 && s.blinkPhase < 0) s.blinkPhase = 0;
             if (s.blinkPhase >= 0) {
                 s.blinkPhase += dt / 0.17;
                 s.blink = s.blinkPhase < 0.5 ? s.blinkPhase * 2 : Math.max(0, 2 - s.blinkPhase * 2);
-                if (s.blinkPhase >= 1) { s.blinkPhase = -1; s.blink = 0; s.blinkT = Math.random() < 0.2 ? 0.13 : rnd(2.4, 5.5); }
+                if (s.blinkPhase >= 1) { s.blinkPhase = -1; s.blink = 0; s.blinkT = Math.random() < 0.2 ? 0.13 : rnd(2.2, 5.2); }
             }
         }
 
@@ -76,63 +186,101 @@
             const breath = Math.sin(s.t * 1.8) * 0.004;
             if (!ready) return;
 
-            // Le lapin entier tient au-dessus des boutons (zone réservée en bas) ; il pivote autour de ses pieds
             const reserve = Math.min(RESERVE_CSS * dpr, h * 0.34);
             const rh = h - reserve;
             const bw = BOX[2] - BOX[0], bh = BOX[3] - BOX[1];
-            const sc = Math.min(rh * 0.92 / bh, w * 0.9 / bw);
+            const sc = Math.min(rh * 0.92 / bh, w * 0.86 / bw);
             const cx = (BOX[0] + BOX[2]) / 2, cy = (BOX[1] + BOX[3]) / 2;
             const px = cx, py = BOX[3] - 10;
-            // Halo derrière lui, qui réagit à la voix
+            const ox = w / 2, oy = rh / 2 + rh * 0.03;
+            view = { cx0: ox, cy0: oy, sc, cx, cy };
+
+            // Halo derrière lui, qui réagit à la voix et aux caresses
             const gl = ctx.createRadialGradient(w / 2, rh / 2, 10, w / 2, rh / 2, Math.min(w, rh) * 0.62);
-            gl.addColorStop(0, `rgba(217,117,48,${0.16 + s.listenLevel * 0.2 + s.mOpen * 0.12})`);
+            gl.addColorStop(0, `rgba(217,117,48,${0.16 + s.listenLevel * 0.2 + s.mOpen * 0.12 + s.pet * 0.14})`);
             gl.addColorStop(1, 'rgba(217,117,48,0)');
             ctx.fillStyle = gl; ctx.fillRect(0, 0, w, h);
+
+            // Le lapin pivote autour de ses pieds et se déplace un peu d'un pied sur l'autre
+            const shift = Math.sin(s.swayPhase + 1.2) * (6 + 9 * s.swayEnergy);
+            const bob = -Math.abs(Math.sin(s.swayPhase)) * (2 + 4 * s.swayEnergy) - s.bounce * 6;
             ctx.save();
-            ctx.translate(w / 2, rh / 2 + rh * 0.03);
+            ctx.translate(ox + shift * sc, oy + bob * sc);
             ctx.scale(sc, sc);
             ctx.translate(-cx, -cy);
             ctx.translate(px, py);
-            ctx.rotate(s.tilt + Math.sin(s.t * 0.7) * 0.012 + Math.sin(s.t * 2.9) * 0.0035 * (s.state === 'speaking' ? 1 : 0.3));
+            ctx.rotate(s.tilt + s.bodyRot);
             ctx.scale(1 + breath, 1 + breath * 1.5 - s.nod * 0.012 + s.bounce * 0.016);
             ctx.translate(-px, -py);
-            ctx.drawImage(img, 0, 0, IW, IH);
 
-            // Paupières : le pelage descend sur chaque bille depuis le haut, avec un trait fin quand l'œil est fermé
-            if (s.blink > 0.02) {
+            // Corps, puis oreilles (chacune pivote à sa base)
+            ctx.drawImage(img.body, 0, 0, IW, IH);
+            ['L', 'R'].forEach((side) => {
+                const [ex, ey] = PIVOT[side];
+                ctx.save();
+                ctx.translate(ex, ey); ctx.rotate(s.ear[side].a); ctx.translate(-ex, -ey);
+                ctx.drawImage(img[side === 'L' ? 'earL' : 'earR'], 0, 0, IW, IH);
+                ctx.restore();
+            });
+
+            // Paupières : le pelage descend sur chaque bille ; yeux plissés sous les caresses
+            const lid = Math.max(s.blink, s.squint);
+            if (lid > 0.02) {
                 EYES.forEach(([x, y], i) => {
                     const rx = EYE_R * 1.18, ry = EYE_R * 1.28;
                     ctx.save();
                     ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.clip();
-                    const cover = clamp(s.blink * 1.1, 0, 1) * ry * 2;
+                    const cover = clamp(lid * 1.1, 0, 1) * ry * 2;
                     ctx.fillStyle = furEyes[i];
                     ctx.fillRect(x - rx, y - ry - 1, rx * 2, cover + 1);
-                    // Texture : le poil juste sous l'œil (même teinte que la joue), recopié sur la paupière
-                    if (cover > 2) ctx.drawImage(img, x - rx, y + ry + 10, rx * 2, cover, x - rx, y - ry, rx * 2, cover);
+                    if (cover > 2) ctx.drawImage(img.body, x - rx, y + ry + 10, rx * 2, cover, x - rx, y - ry, rx * 2, cover);
                     ctx.restore();
-                    if (s.blink > 0.55) {
+                    if (lid > 0.5) {
                         ctx.strokeStyle = 'rgba(95,80,68,0.75)'; ctx.lineWidth = 1.2 * K; ctx.lineCap = 'round';
-                        const ly = y - ry + cover;
-                        ctx.beginPath(); ctx.moveTo(x - EYE_R * 0.95, ly - 1); ctx.quadraticCurveTo(x, ly + 0.7 * K * 1.5, x + EYE_R * 0.95, ly - 1); ctx.stroke();
+                        const ly = y - ry + cover, up = s.squint > 0.3 ? 1.6 : -0.7;   // yeux souriants quand on le caresse
+                        ctx.beginPath(); ctx.moveTo(x - EYE_R * 0.95, ly - 1); ctx.quadraticCurveTo(x, ly - up * K, x + EYE_R * 0.95, ly - 1); ctx.stroke();
                     }
                 });
             }
-            // Bouche : pas de bouche sur la peluche, donc une ombre douce dans le poil (bords fondus), qui s'ouvre avec la voix
-            if (s.mOpen > 0.04) {
-                const [mx, my] = MOUTH;
-                const rx = (2.2 + s.mWide * 1.8 + s.mOpen * 0.5) * K, ry = (0.8 + s.mOpen * 4.2) * K;
-                const cy = my + ry * 0.35;
+
+            // Mâchoire : le bas du museau descend et s'étire avec la voix
+            const open = s.mOpen;
+            if (jawPatch && open > 0.05) {
                 ctx.save();
-                ctx.translate(mx, cy); ctx.scale(rx * 1.7, ry * 1.7);
+                ctx.translate(JAW.x + JAW.w / 2, JAW.y + JAW.h * 0.3);
+                ctx.scale(1 + open * 0.015, 1 + open * 0.07);
+                ctx.translate(0, open * 9);
+                ctx.globalAlpha = clamp(open * 3, 0, 1);
+                ctx.drawImage(jawPatch, -JAW.w / 2, -JAW.h * 0.3);
+                ctx.restore();
+            }
+            // Sourire discret : à l'écoute, sous les caresses ; bouche fermée
+            const smile = clamp(Math.max(s.pet * 1.2, s.state === 'user' ? 0.55 : 0.18) * (1 - open * 4), 0, 1);
+            if (smile > 0.02) {
+                const [mx, my] = MOUTH;
+                ctx.save();
+                ctx.strokeStyle = `rgba(110,72,66,${0.28 * smile + 0.1})`; ctx.shadowColor = 'rgba(110,72,66,0.5)'; ctx.shadowBlur = 8;
+                ctx.lineWidth = 3.4; ctx.lineCap = 'round';
+                ctx.beginPath(); ctx.moveTo(mx - 38 - smile * 10, my - 6 - smile * 6); ctx.quadraticCurveTo(mx, my + 10 + smile * 10, mx + 38 + smile * 10, my - 6 - smile * 6); ctx.stroke();
+                ctx.restore();
+            }
+            // Ombre de la bouche : s'ouvre et s'élargit avec la voix, suit la mâchoire
+            if (open > 0.04) {
+                const [mx, my0] = MOUTH;
+                const my = my0 + open * 8;
+                const rx = (2.2 + s.mWide * 1.9 + open * 0.8) * K, ry = (0.8 + open * 4.6) * K;
+                const cyy = my + ry * 0.35;
+                ctx.save();
+                ctx.translate(mx, cyy); ctx.scale(rx * 1.7, ry * 1.7);
                 const outer = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-                outer.addColorStop(0, `rgba(78,36,38,${0.35 + s.mOpen * 0.4})`);
-                outer.addColorStop(0.55, `rgba(110,64,60,${0.22 + s.mOpen * 0.22})`);
+                outer.addColorStop(0, `rgba(78,36,38,${0.38 + open * 0.42})`);
+                outer.addColorStop(0.55, `rgba(110,64,60,${0.24 + open * 0.24})`);
                 outer.addColorStop(1, 'rgba(120,80,70,0)');
                 ctx.fillStyle = outer; ctx.fillRect(-1.1, -1.1, 2.2, 2.2);
-                if (s.mOpen > 0.3) {
+                if (open > 0.3) {
                     ctx.scale(0.55, 0.55);
                     const inner = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-                    inner.addColorStop(0, `rgba(48,18,22,${0.5 + s.mOpen * 0.4})`);
+                    inner.addColorStop(0, `rgba(48,18,22,${0.5 + open * 0.4})`);
                     inner.addColorStop(0.7, 'rgba(60,26,28,0.35)');
                     inner.addColorStop(1, 'rgba(60,26,28,0)');
                     ctx.fillStyle = inner; ctx.fillRect(-1.1, -1.1, 2.2, 2.2);
@@ -154,9 +302,12 @@
 
         return {
             setState(st) { s.state = st; },
-            setMouth(open, wide) { s.mouthOpen = clamp(open, 0, 1); s.mouthWide = clamp(wide, 0, 1); },
+            setMouth(open, wide) { s.mouthOpen = clamp(open * 1.2, 0, 1); s.mouthWide = clamp(wide, 0, 1); },
             setListenLevel(v) { s.listenLevel = lerp(s.listenLevel, clamp(v, 0, 1), 0.25); },
-            nod(strength) { s.nodV = -(strength || 1) * 6; },
+            nod(strength) { s.nodV = -(strength || 1) * 6; s.pulse = 1; },
+            onPet(cb) { petCb = cb; },
+            _pet(side) { s.pet = 1; s.ear[side].v += 3; },   // essais : simule une caresse
+            _state: s,
             stop() { running = false; window.removeEventListener('resize', resize); if (ro) ro.disconnect(); }
         };
     }

@@ -1,6 +1,6 @@
 // avatar.js — conversation vocale « full duplex » avec un avatar animé.
-// Le micro reste ouvert pendant que Marie parle : on peut l'interrompre à la voix, et elle réagit pendant
-// qu'on parle (hochements, « hm », « d'accord »). Chaîne : micro → transcription Voxtral → Ministral → voix Marie en flux.
+// Le micro reste ouvert pendant que David Twenty parle : on peut l'interrompre à la voix, et elle réagit pendant
+// qu'on parle (hochements, « hm », « d'accord »). Chaîne : micro → transcription Voxtral → Ministral → voix en flux.
 (function () {
     'use strict';
 
@@ -10,13 +10,17 @@
     const PER_MODEL_PER_MIN = 2;
     const STT_MODEL = 'voxtral-mini-latest';
     const TTS_MODEL = 'voxtral-mini-tts-2603';
-    // Pas de voix d'enfant chez Mistral : « Marie joyeuse » jouée un peu plus vite (donc plus aiguë) donne une voix enfantine
+    // Pas de voix d'enfant chez Mistral : on part d'une voix existante, jouée plus aiguë (pitch), puis on rallonge le son
+    // sans changer sa hauteur (étirement temporel) pour que la voix parle plus lentement qu'une lecture accélérée.
+    // Garçon : voix masculine « Paul » (lit le français avec un léger accent), hauteur +30 %.
     const VOICES = {
-        enfant: { id: 'fr_marie_happy', rate: 1.17, label: 'Voix : enfant' },
-        adulte: { id: 'fr_marie_neutral', rate: 1, label: 'Voix : adulte' }
+        garcon: { id: 'en_paul_happy', pitch: 1.3, speed: 0.9, label: 'Voix : garçon' },
+        fille: { id: 'fr_marie_happy', pitch: 1.17, speed: 0.92, label: 'Voix : fille' },
+        adulte: { id: 'fr_marie_neutral', pitch: 1, speed: 0.95, label: 'Voix : adulte' }
     };
-    let voiceKind = (function () { try { return localStorage.getItem('avatar-voix') || 'enfant'; } catch (e) { return 'enfant'; } })();
-    if (!VOICES[voiceKind]) voiceKind = 'enfant';
+    const VOICE_ORDER = ['garcon', 'fille', 'adulte'];
+    let voiceKind = (function () { try { return localStorage.getItem('avatar-voix2') || 'garcon'; } catch (e) { return 'garcon'; } })();
+    if (!VOICES[voiceKind]) voiceKind = 'garcon';
     const voice = () => VOICES[voiceKind];
     const BLOCK = 2048;                  // blocs du micro (~43 ms à 48 kHz)
     const PREROLL_BLOCKS = 14;           // ~0,6 s gardées avant la détection
@@ -24,15 +28,15 @@
     const START_BLOCKS_BARGE = 7;        // pendant qu'elle parle : 7 sur 10 (l'écho ne doit pas l'interrompre)
     const END_SILENCE_MS = 800;          // fin de tour après 0,8 s de silence
     const MIN_SPEECH_MS = 300;
-    const MAX_SPEECH_MS = 60000;
+    const MAX_SPEECH_MS = 25000;
     const BC_MIN_SPEECH_MS = 4000;       // réaction « hm » seulement quand on parle depuis un moment
     const BC_PAUSE_MIN = 380, BC_PAUSE_MAX = 620;
     const BC_GAP_MS = 7000;
     const HISTORY_MAX = 24;
-    const BACKCHANNELS = ['Hm.', 'D\'accord.', 'Je vois.'];
+    const BACKCHANNELS = ['D\'accord.', 'Je vois.', 'Oui.'];
 
     const SYSTEM_PROMPT = [
-        'Tu es Marie, une interlocutrice vocale chaleureuse et naturelle. Tu parles français, à l\'oral, en face à face avec une personne.',
+        'Tu t\'appelles David Twenty. Tu es un avatar vocal chaleureux et naturel ; si on te demande ton nom, tu réponds « David Twenty ». Tu parles français, à l\'oral, en face à face avec une personne.',
         'Réponds en une à trois phrases courtes, comme dans une vraie conversation : pas de liste, pas de markdown, pas d\'emoji, pas de symbole.',
         'Écris tout ce qui se dit à voix haute en toutes lettres : « onze à douze degrés », « vingt-trois pour cent ».',
         'Tu peux réagir brièvement (« ah oui ? », « d\'accord ») et poser une question de relance, mais jamais plusieurs à la fois.',
@@ -44,27 +48,28 @@
     const el = { face: $('face'), status: $('status'), capUser: $('cap-user'), capBot: $('cap-bot'),
         head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
     const HEADS = { lapin: window.AvatarRabbit, marie: window.AvatarFace };
-    const HEAD_LABEL = { lapin: 'Tête : lapin', marie: 'Tête : Marie' };
+    const HEAD_LABEL = { lapin: 'Tête : lapin', marie: 'Tête : visage' };
     let headName = (function () { try { return localStorage.getItem('avatar-tete') || 'lapin'; } catch (e) { return 'lapin'; } })();
     if (!HEADS[headName]) headName = 'lapin';
     let face = HEADS[headName](el.face);
+    attachPet(face);
     document.body.classList.toggle('lapin', headName === 'lapin');
     el.head.textContent = HEAD_LABEL[headName];
     el.voiceBtn.textContent = VOICES[voiceKind].label;
     el.voiceBtn.addEventListener('click', () => {
-        voiceKind = voiceKind === 'enfant' ? 'adulte' : 'enfant';
-        try { localStorage.setItem('avatar-voix', voiceKind); } catch (e) { /* stockage indisponible */ }
+        voiceKind = VOICE_ORDER[(VOICE_ORDER.indexOf(voiceKind) + 1) % VOICE_ORDER.length];
+        try { localStorage.setItem('avatar-voix2', voiceKind); } catch (e) { /* stockage indisponible */ }
         el.voiceBtn.textContent = VOICES[voiceKind].label;
         S.bcBuffers = []; S.bcStarted = false;   // les petites réactions sont refaites avec la nouvelle voix
     });
     el.head.addEventListener('click', () => {
         headName = headName === 'lapin' ? 'marie' : 'lapin';
         try { localStorage.setItem('avatar-tete', headName); } catch (e) { /* stockage indisponible */ }
-        face.stop(); document.body.classList.toggle('lapin', headName === 'lapin'); face = HEADS[headName](el.face);
+        face.stop(); document.body.classList.toggle('lapin', headName === 'lapin'); face = HEADS[headName](el.face); attachPet(face);
         face.setState(S.state === 'transcribing' ? 'thinking' : S.state);
         el.head.textContent = HEAD_LABEL[headName];
     });
-    const STATUS = { idle: '', user: 'Je vous écoute', transcribing: '…', thinking: 'Je réfléchis', speaking: 'Marie parle' };
+    const STATUS = { idle: '', user: 'Je vous écoute', transcribing: '…', thinking: 'Je réfléchis', speaking: 'David Twenty parle' };
 
     // ---------- Mode ?diag : journal envoyé au VPS (~/.cache/harnais-diag-live.log) et affiché à l'écran ----------
     const DIAG = /[?&]diag\b/.test(location.search);
@@ -94,7 +99,7 @@
         floor: 0.004, hits: [], preroll: [], chunks: [], recording: false, speechStart: 0, lastVoiceAt: 0,
         lastBc: 0, bcUntil: 0, bcBuffers: [], lastNod: 0,
         history: [], gen: 0, llmAbort: null, voiceChain: Promise.resolve(), voiceAbort: null, sources: [], playHead: 0,
-        spoken: '', pendingText: '', llmDone: true, botText: '', prevBot: '', ttsPending: 0, blocks: 0
+        spoken: '', pendingText: '', llmDone: true, botText: '', prevBot: '', ttsPending: 0, peak: 0, blocks: 0
     };
 
     function setState(st) {
@@ -110,7 +115,7 @@
         const Ctx = window.AudioContext || window.webkitAudioContext;
         S.ctx = new Ctx();
         try { S.ctx.resume(); } catch (e) { /* repris au toucher */ }
-        // Sortie unique : tout ce que Marie dit passe par là (analyse de la bouche)
+        // Sortie unique : tout ce que l'avatar dit passe par là (analyse de la bouche)
         S.out = S.ctx.createGain();
         S.analyser = S.ctx.createAnalyser();
         S.analyser.fftSize = 1024;
@@ -135,7 +140,7 @@
     // Elle « parle » dès qu'une voix est demandée, tant que de l'audio est attendu ou joué, et 0,45 s après (écho de fin)
     const botTalking = () => S.state === 'speaking' || S.ttsPending > 0 || !!(S.ctx && (S.ctx.currentTime < S.bcUntil || S.ctx.currentTime < S.playHead + 0.45));
 
-    // Sans micro (écho de Marie en cas de mauvaise annulation) : seuil plus haut pendant qu'elle parle
+    // Sans micro (écho de l'avatar en cas de mauvaise annulation) : seuil plus haut pendant qu'elle parle
     function onAudio(e) {
         if (!S.active) return;
         const data = new Float32Array(e.inputBuffer.getChannelData(0));
@@ -152,7 +157,9 @@
         if (S.recording) {
             S.chunks.push(data);
             const bcPlaying = S.ctx.currentTime < S.bcUntil;
-            if (rms > threshold * (bcPlaying ? 1.8 : 0.6)) S.lastVoiceAt = now;
+            S.peak = Math.max(S.peak * 0.992, rms);
+            // Voix = nettement au-dessus du seuil ET d'une part du pic de la prise : un bruit continu ne retient plus l'enregistrement
+            if (rms > Math.max(threshold * (bcPlaying ? 1.8 : 0.6), S.peak * 0.2)) S.lastVoiceAt = now;
             const pause = now - S.lastVoiceAt, dur = now - S.speechStart;
             // Il hoche la tête dès qu'on marque une pause, et réagit à voix basse quand on parle longtemps
             if (pause > 250 && pause < 700 && now - S.lastNod > 2200) { S.lastNod = now; face.nod(0.8); }
@@ -176,6 +183,7 @@
         S.recording = true;
         S.chunks = S.preroll.slice(); S.preroll = []; S.hits = [];
         S.speechStart = S.lastVoiceAt = now;
+        S.peak = 0;
         S.lastNod = now;
         el.capUser.textContent = '';
         setState('user');
@@ -204,15 +212,15 @@
         });
     }
 
-    // Voxtral invente parfois « Thank you » sur du bruit ; et le micro peut reprendre la voix de Marie
+    // Voxtral invente parfois « Thank you » sur du bruit ; et le micro peut reprendre la voix de l'avatar
     function isHallucination(t) {
         const n = t.toLowerCase().replace(/[^a-zàâçéèêëîïôûùüÿœ' ]/g, ' ').replace(/\s+/g, ' ').trim();
-        return /^(thank you|thanks|thank you for watching|merci|merci beaucoup|sous-titr|subtitles|amara|you|bye|okay|ok)\b/.test(n) && n.split(' ').length <= 4;
+        return /^(thank you|thanks for watching|thank you for watching|sous-titr|subtitles|amara)\b/.test(n) || n === 'thank you' || n === 'you';
     }
     function looksLikeEcho(t) {
         const norm = (x) => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 2);
         const words = norm(t);
-        if (words.length < 2) return false;
+        if (words.length < 3) return false;
         const ref = new Set(norm(S.botText + ' ' + S.prevBot));
         return words.filter(w => ref.has(w)).length / words.length >= 0.7;
     }
@@ -286,7 +294,7 @@
     }
     async function chatRequest(web, abort, gen) {
         let lastRes = null;
-        for (let essai = 0; essai < CHAT_POOL.length * 2 + 1; essai++) {
+        for (let essai = 0; essai < CHAT_POOL.length * 3 + 1; essai++) {
             if (gen !== S.gen) return null;
             let model = pickModel();
             if (!model) {
@@ -329,13 +337,22 @@
         setState('thinking');
         const abort = new AbortController();
         S.llmAbort = abort;
+        // Garde-fou : aucune réponse au bout de 40 s (recherche web ou modèle bloqués) → on rend la main au lieu de rester muet
+        clearTimeout(S.wd);
+        S.wd = setTimeout(() => {
+            if (gen !== S.gen || S.botText) return;
+            diagLog('délai dépassé : aucune réponse en 40 s');
+            try { abort.abort(); } catch (e) { /* déjà fini */ }
+            el.capBot.textContent = 'Pas de réponse du modèle, réessayez.';
+            S.llmDone = true; setState('idle');
+        }, 40000);
         // Recherche web (Tavily, par le relais du serveur) seulement quand la question en a besoin
         const web = needsWeb(userText);
         if (web) { diagLog('recherche web'); el.capBot.textContent = 'Je cherche sur le web…'; }
         try {
             const res = await chatRequest(web, abort, gen);
             if (!res) return;
-            if (!res.ok) throw new Error('Mistral ' + res.status + (res.status === 429 ? ' : limite de requêtes, patientez un instant' : ''));
+            if (!res.ok) throw new Error(res.status === 429 ? 'Limite Mistral atteinte (2 réponses par minute et par modèle) : patientez une minute puis reparlez.' : 'Mistral ' + res.status);
             const reader = res.body.getReader();
             const dec = new TextDecoder();
             let buf = '';
@@ -353,6 +370,7 @@
                     if (typeof delta === 'string' && delta) onDelta(gen, delta);
                 }
             }
+            clearTimeout(S.wd);
             if (gen !== S.gen) return;
             flushSpeech(gen, true);
             S.llmDone = true;
@@ -360,6 +378,7 @@
             watchEnd(gen);
             if (!S.bcStarted) { S.bcStarted = true; setTimeout(() => { if (S.active) prepareBackchannels(); }, 6000); }
         } catch (err) {
+            clearTimeout(S.wd);
             if (gen !== S.gen || (err && err.name === 'AbortError')) return;
             diagLog('erreur réponse : ' + String(err && err.message || err).slice(0, 120));
             el.capBot.textContent = String(err && err.message || err).slice(0, 140);
@@ -370,6 +389,7 @@
 
     // Phrases complètes envoyées à la voix ; la première part plus tôt (à la première virgule) pour répondre vite
     function onDelta(gen, delta) {
+        clearTimeout(S.wd);
         S.botText += delta;
         S.pendingText += delta;
         el.capBot.textContent = S.botText.trim();
@@ -386,6 +406,7 @@
             else if (!S.spoken && !final) { const c = rest.match(/^[\s\S]{24,}?,(?=\s)/); if (c) cut = c[0].length; }
             else if (rest.length > 180 && !final) { const c = rest.match(/^[\s\S]{100,}?[,\s](?=\S)/); if (c) cut = c[0].length; }
             if (cut < 0) break;
+            if (cut < 14 && !final) break;   // un texte trop court donne une voix inventée : on attend la suite
             const chunk = rest.slice(0, cut);
             rest = rest.slice(cut);
             speak(gen, chunk);
@@ -394,7 +415,7 @@
         S.pendingText = rest;
     }
 
-    // ---------- Voix Marie en flux, jouée dans le contexte du micro ----------
+    // ---------- Voix en flux, jouée dans le contexte du micro ----------
     function speak(gen, raw) {
         const text = cleanForSpeech(raw);
         if (!text || gen !== S.gen) return;
@@ -415,7 +436,20 @@
             body: JSON.stringify({ model: TTS_MODEL, input: text, response_format: 'pcm', voice_id: voice().id, stream: true })
         }, 3);
         if (!res.ok) throw new Error('Mistral ' + res.status);
-        await readPcm(res, gen, (samples) => { if (gen === S.gen) schedule(samples, 1, voice().rate); });
+        const parts = [];
+        await readPcm(res, gen, (samples) => { parts.push(samples); });
+        if (gen !== S.gen) return;
+        const v = voice();
+        let all = concat(parts);
+        const maxSamples = Math.round((0.9 + text.length * 0.12) * 24000);
+        if (all.length > maxSamples) {
+            diagLog('audio trop long pour « ' + text.slice(0, 30) + ' » (' + (all.length / 24000).toFixed(1) + ' s), coupé');
+            all = all.slice(0, maxSamples);
+            const fade = Math.min(720, all.length);
+            for (let i = 0; i < fade; i++) all[all.length - 1 - i] *= i / fade;
+        }
+        const f = v.pitch / v.speed;                       // > 1 : on rallonge le son avant de le jouer plus aigu
+        schedule(Math.abs(f - 1) > 0.03 ? timeStretch(all, f) : all, 1, v.pitch);
     }
     async function readPcm(res, gen, onSamples) {
         const reader = res.body.getReader();
@@ -439,6 +473,47 @@
         }
         try { reader.cancel(); } catch (e) { /* flux déjà fermé */ }
     }
+    function concat(parts) {
+        const out = new Float32Array(parts.reduce((n, p) => n + p.length, 0));
+        let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+        return out;
+    }
+    // Étirement temporel (WSOLA) : f > 1 rallonge le son sans changer sa hauteur. Fenêtres de 40 ms, recouvrement de moitié,
+    // chacune recalée (±12 ms) sur la suite naturelle de la précédente pour éviter les battements.
+    function timeStretch(x, f) {
+        const sr = 24000, win = Math.round(sr * 0.04), hop = win >> 1, ha = hop / f, tol = Math.round(sr * 0.012);
+        const hann = new Float32Array(win);
+        for (let i = 0; i < win; i++) hann[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (win - 1));
+        const outLen = Math.ceil(x.length * f) + win;
+        const out = new Float32Array(outLen), norm = new Float32Array(outLen);
+        let prev = 0;
+        for (let k = 0; ; k++) {
+            const target = Math.round(k * ha);
+            let best = target;
+            if (k > 0) {
+                const ref = prev + hop;
+                if (ref + win >= x.length) break;
+                let bestC = -Infinity;
+                for (let d = -tol; d <= tol; d += 2) {
+                    const st = target + d;
+                    if (st < 0 || st + win >= x.length) continue;
+                    let c = 0;
+                    for (let i = 0; i < win; i += 4) c += x[st + i] * x[ref + i];
+                    if (c > bestC) { bestC = c; best = st; }
+                }
+            }
+            if (best + win > x.length) break;
+            const o = k * hop;
+            if (o + win > outLen) break;
+            for (let i = 0; i < win; i++) { out[o + i] += x[best + i] * hann[i]; norm[o + i] += hann[i]; }
+            prev = best;
+        }
+        const n = Math.min(outLen, Math.floor(x.length * f));
+        const res = new Float32Array(n);
+        for (let i = 0; i < n; i++) res[i] = norm[i] > 1e-3 ? out[i] / norm[i] : 0;
+        return res;
+    }
+
     function schedule(samples, gain, rate = 1) {
         if (!S.ctx) return;
         const buf = S.ctx.createBuffer(1, samples.length, 24000);
@@ -502,9 +577,11 @@
                 await readPcm(res, 'bc', (s) => parts.push(s));
                 const total = parts.reduce((n, p) => n + p.length, 0);
                 if (!total || !S.ctx) continue;
-                const all = new Float32Array(total);
-                let o = 0; for (const p of parts) { all.set(p, o); o += p.length; }
-                S.bcBuffers.push(all);
+                const v = voice();
+                const all = concat(parts), f = v.pitch / v.speed;
+                // Les très courts textes donnent parfois plusieurs secondes de babillage : on écarte tout ce qui est trop long
+                if (all.length > 24000 * 1.5 || all.length < 24000 * 0.12) { diagLog('réaction écartée (' + (all.length / 24000).toFixed(1) + ' s) : ' + text); continue; }
+                S.bcBuffers.push(Math.abs(f - 1) > 0.03 ? timeStretch(all, f) : all);
             } catch (e) { /* tant pis : seulement les hochements */ }
             await sleep(2500);
         }
@@ -516,7 +593,7 @@
         const samples = S.bcBuffers[Math.floor(Math.random() * S.bcBuffers.length)];
         const before = S.playHead;
         S.playHead = 0;
-        schedule(samples, 0.55, voice().rate);
+        schedule(samples, 0.55, voice().pitch);
         S.bcUntil = S.playHead + 0.25;
         S.playHead = before;   // n'empiète pas sur une réponse déjà programmée
     }
@@ -535,6 +612,29 @@
         face.setMouth(open, wide);
     }
     lipSync();
+
+    // ---------- Caresses sur les oreilles : il réagit aussi de vive voix, de temps en temps ----------
+    const PET_PHRASES = ['Hihi, ça chatouille !', 'Oh, j\'adore les caresses !', 'Mmh, c\'est tout doux.', 'Oh là là, continue !'];
+    function attachPet(f) { if (f && typeof f.onPet === 'function') f.onPet(handlePet); }
+    function handlePet() {
+        const now = Date.now();
+        if (!S.active || now - (S.lastPetSay || 0) < 25000) return;
+        if (S.state === 'speaking' || S.state === 'thinking' || S.state === 'transcribing' || S.recording) return;
+        S.lastPetSay = now;
+        diagLog('caresse : réaction vocale');
+        quickSay(PET_PHRASES[Math.floor(Math.random() * PET_PHRASES.length)]);
+    }
+    // Une phrase toute faite, sans passer par le modèle de réponse (pas de requête de chat)
+    function quickSay(text) {
+        if (!S.ctx || !S.active) return;
+        const gen = ++S.gen;
+        stopAllSounds();
+        S.ttsPending = 0; S.voiceChain = Promise.resolve();
+        S.spoken = ''; S.pendingText = ''; S.botText = text; S.llmDone = true;
+        el.capBot.textContent = text;
+        speak(gen, text);
+        watchEnd(gen);
+    }
 
     // ---------- Boutons ----------
     async function begin() {
