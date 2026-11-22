@@ -46,7 +46,7 @@
     // ---------- Éléments ----------
     const $ = (id) => document.getElementById(id);
     const el = { face: $('face'), status: $('status'), capUser: $('cap-user'), capBot: $('cap-bot'),
-        head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
+        mic: $('mic'), meter: $('meter-bar'), head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
     const HEADS = { lapin: window.AvatarRabbit, marie: window.AvatarFace };
     const HEAD_LABEL = { lapin: 'Tête : lapin', marie: 'Tête : visage' };
     let headName = (function () { try { return localStorage.getItem('avatar-tete') || 'lapin'; } catch (e) { return 'lapin'; } })();
@@ -96,10 +96,10 @@
     const S = {
         active: false, state: 'idle', muted: false,
         ctx: null, stream: null, source: null, proc: null, sink: null, out: null, analyser: null,
-        floor: 0.004, hits: [], preroll: [], chunks: [], recording: false, speechStart: 0, lastVoiceAt: 0,
+        floor: 0.002, hits: [], preroll: [], chunks: [], recording: false, speechStart: 0, lastVoiceAt: 0,
         lastBc: 0, bcUntil: 0, bcBuffers: [], lastNod: 0,
         history: [], gen: 0, llmAbort: null, voiceChain: Promise.resolve(), voiceAbort: null, sources: [], playHead: 0,
-        spoken: '', pendingText: '', llmDone: true, botText: '', prevBot: '', ttsPending: 0, peak: 0, blocks: 0
+        spoken: '', pendingText: '', llmDone: true, botText: '', prevBot: '', ttsPending: 0, peak: 0, blocks: 0, maxRms: 0, peakWin: 0, zeroBlocks: 0, rebuilt: false, micTimer: null, meterTimer: null
     };
 
     function setState(st) {
@@ -124,11 +124,50 @@
     }
     async function startMic() {
         S.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+        const track = S.stream.getAudioTracks()[0];
+        if (track) {
+            const st = track.getSettings ? track.getSettings() : {};
+            diagLog(`micro « ${track.label} » ${track.readyState}${track.muted ? ' MUET' : ''} · écho ${st.echoCancellation} · ${S.ctx.state} ${S.ctx.sampleRate} Hz`);
+            track.onmute = () => { diagLog('micro MUET (coupé par le système)'); showMicHint('Le micro est coupé par le système. Vérifiez qu\'aucune autre app ne l\'utilise.'); };
+            track.onunmute = () => { diagLog('micro rétabli'); showMicHint(''); };
+            track.onended = () => { diagLog('micro TERMINÉ'); showMicHint('Le micro s\'est arrêté : touchez « Terminer » puis recommencez.'); };
+            el.mic.textContent = '🎤 ' + (track.label || 'micro').slice(0, 44);
+        }
         S.source = S.ctx.createMediaStreamSource(S.stream);
         S.proc = S.ctx.createScriptProcessor(BLOCK, 1, 1);
         S.sink = S.ctx.createGain(); S.sink.gain.value = 0;
         S.source.connect(S.proc); S.proc.connect(S.sink); S.sink.connect(S.ctx.destination);
         S.proc.onaudioprocess = onAudio;
+    }
+    // Le micro doit envoyer des blocs et du signal : sinon on relance le contexte audio une fois, puis on le dit à l'écran
+    function showMicHint(t) { el.capUser.textContent = t; }
+    function micWatch() {
+        clearTimeout(S.micTimer);
+        S.micTimer = setTimeout(() => {
+            if (!S.active || !S.stream) return;
+            diagLog(`micro : ${S.blocks} blocs, pic ${S.maxRms.toFixed(4)}, seuil ${Math.max(0.004, S.floor * 3).toFixed(4)}, ${S.ctx.state}`);
+            if (S.ctx.state !== 'running') { try { S.ctx.resume(); } catch (e) { /* repris au toucher */ } }
+            if (S.blocks === 0 || S.maxRms === 0) {
+                if (!S.rebuilt) {
+                    S.rebuilt = true;
+                    diagLog('micro : aucun signal, contexte recréé');
+                    reopenMic().then(micWatch);
+                    return;
+                }
+                showMicHint(S.blocks === 0 ? 'Le son du micro n\'arrive pas. Touchez l\'écran, ou autorisez le micro puis recommencez.' : 'Le micro n\'envoie que du silence : vérifiez le micro choisi dans les réglages du navigateur.');
+            } else if (S.maxRms < 0.01 && S.state === 'idle') {
+                showMicHint('Je vous entends à peine : parlez plus près du micro.');
+            }
+        }, 3000);
+    }
+    async function reopenMic() {
+        try {
+            try { S.proc && (S.proc.onaudioprocess = null); S.source && S.source.disconnect(); S.proc && S.proc.disconnect(); S.sink && S.sink.disconnect(); } catch (e) { /* déjà détaché */ }
+            try { S.stream && S.stream.getTracks().forEach(t => t.stop()); } catch (e) { /* déjà arrêté */ }
+            S.blocks = 0; S.maxRms = 0;
+            await startMic();
+            try { await S.ctx.resume(); } catch (e) { /* repris au toucher */ }
+        } catch (e) { diagLog('micro : réouverture impossible ' + (e && e.message)); }
     }
     function stopAudio() {
         try { S.proc && (S.proc.onaudioprocess = null); } catch (e) { /* déjà arrêté */ }
@@ -138,6 +177,12 @@
         S.ctx = S.stream = S.source = S.proc = S.sink = S.out = S.analyser = null;
     }
     // Elle « parle » dès qu'une voix est demandée, tant que de l'audio est attendu ou joué, et 0,45 s après (écho de fin)
+    // Jauge : montre à l'écran que le micro entend, même quand rien ne se passe
+    function meterTick() {
+        if (!S.active) { el.meter.style.width = '0'; return; }
+        el.meter.style.width = Math.min(100, Math.round(S.peakWin * 900)) + '%';
+        S.peakWin *= 0.6;
+    }
     const botTalking = () => S.state === 'speaking' || S.ttsPending > 0 || !!(S.ctx && (S.ctx.currentTime < S.bcUntil || S.ctx.currentTime < S.playHead + 0.45));
 
     // Sans micro (écho de l'avatar en cas de mauvaise annulation) : seuil plus haut pendant qu'elle parle
@@ -149,8 +194,11 @@
         const rms = Math.sqrt(sum / data.length);
         const now = performance.now();
         S.blocks++;
+        if (rms > S.maxRms) S.maxRms = rms;
+        if (rms > S.peakWin) S.peakWin = rms;
+        S.zeroBlocks = rms === 0 ? S.zeroBlocks + 1 : 0;
         const talking = botTalking();
-        const threshold = talking ? Math.max(0.02, S.floor * 5) : Math.max(0.006, S.floor * 3);
+        const threshold = talking ? Math.max(0.02, S.floor * 5) : Math.max(0.004, S.floor * 3);
         if (S.muted) { S.hits = []; return; }
         face.setListenLevel(S.recording && !talking ? rms * 14 : 0);
 
@@ -641,17 +689,21 @@
         if (!mistralKey()) { el.capBot.textContent = 'Clé Mistral manquante : saisissez-la dans la configuration du harnais.'; return; }
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { el.capBot.textContent = 'Ce navigateur ne permet pas d\'utiliser le micro ici.'; return; }
         newContext();                                    // dans le geste de l'utilisateur (iPhone)
+        S.rebuilt = false; S.maxRms = 0; S.blocks = 0;
         try { await startMic(); } catch (e) { el.capBot.textContent = 'Micro refusé : autorisez-le puis réessayez.'; stopAudio(); return; }
         S.active = true; S.muted = false; S.history = []; S.bcBuffers = [];
         el.start.hidden = true; el.mute.hidden = el.cut.hidden = el.stop.hidden = false; el.note.hidden = true;
         el.capUser.textContent = ''; el.capBot.textContent = '';
         setState('idle');
         diagLog('--- ouverture · ' + navigator.userAgent);
+        micWatch();
+        clearInterval(S.meterTimer); S.meterTimer = setInterval(meterTick, 80);
         // Les petites réactions (« hm ») se préparent après le premier échange, pour ne pas peser sur le quota au départ
         S.bcStarted = false;
     }
     function end() {
         S.active = false;
+        clearTimeout(S.micTimer); clearInterval(S.meterTimer); el.meter.style.width = '0'; el.mic.textContent = '';
         interrupt();
         stopAudio();
         S.recording = false; S.chunks = []; S.preroll = [];

@@ -21,3 +21,6 @@ body.lapin #face { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-
 body.lapin #app { justify-content: flex-end; }
 body.lapin #app > *:not(#face) { position: relative; z-index: 1; text-shadow: 0 1px 6px rgba(0,0,0,.85); }
 body.lapin button { text-shadow: none; }
+#micinfo { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--mut); max-width: 560px; width: 100%; justify-content: center; }
+#meter { width: 90px; height: 5px; background: #1b2030; border-radius: 3px; overflow: hidden; }
+#meter-bar { height: 100%; width: 0; background: #6fd6a2; transition: width .08s linear; }
