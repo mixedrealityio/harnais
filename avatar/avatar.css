@@ -24,3 +24,5 @@ body.lapin button { text-shadow: none; }
 #micinfo { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--mut); max-width: 560px; width: 100%; justify-content: center; }
 #meter { width: 90px; height: 5px; background: #1b2030; border-radius: 3px; overflow: hidden; }
 #meter-bar { height: 100%; width: 0; background: #6fd6a2; transition: width .08s linear; }
+#micsel { background: #1d2130; color: var(--fg); border: 1px solid #2c3247; border-radius: 8px; font: 11px/1.2 inherit; padding: 3px 6px; max-width: 220px; }
+#micsel[hidden] { display: none; }

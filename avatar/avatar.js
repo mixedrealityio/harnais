@@ -46,7 +46,7 @@
     // ---------- Éléments ----------
     const $ = (id) => document.getElementById(id);
     const el = { face: $('face'), status: $('status'), capUser: $('cap-user'), capBot: $('cap-bot'),
-        mic: $('mic'), meter: $('meter-bar'), head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
+        micsel: $('micsel'), mic: $('mic'), meter: $('meter-bar'), head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
     const HEADS = { lapin: window.AvatarRabbit, marie: window.AvatarFace };
     const HEAD_LABEL = { lapin: 'Tête : lapin', marie: 'Tête : visage' };
     let headName = (function () { try { return localStorage.getItem('avatar-tete') || 'lapin'; } catch (e) { return 'lapin'; } })();
@@ -122,8 +122,18 @@
         S.out.connect(S.analyser);
         S.analyser.connect(S.ctx.destination);
     }
+    let micChoice = (function () { try { return localStorage.getItem('avatar-micro') || ''; } catch (e) { return ''; } })();
     async function startMic() {
-        S.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+        const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 };
+        if (micChoice) audio.deviceId = { exact: micChoice };
+        try {
+            S.stream = await navigator.mediaDevices.getUserMedia({ audio });
+        } catch (e) {
+            if (!micChoice) throw e;
+            diagLog('micro choisi introuvable, retour au micro par défaut');
+            micChoice = ''; delete audio.deviceId;
+            S.stream = await navigator.mediaDevices.getUserMedia({ audio });
+        }
         const track = S.stream.getAudioTracks()[0];
         if (track) {
             const st = track.getSettings ? track.getSettings() : {};
@@ -154,11 +164,42 @@
                     reopenMic().then(micWatch);
                     return;
                 }
-                showMicHint(S.blocks === 0 ? 'Le son du micro n\'arrive pas. Touchez l\'écran, ou autorisez le micro puis recommencez.' : 'Le micro n\'envoie que du silence : vérifiez le micro choisi dans les réglages du navigateur.');
+                listMics().then((mics) => {
+                    const next = mics.find(d => !(S.micTried && S.micTried.has(d.deviceId)));
+                    if (next && S.active) {
+                        diagLog('micro muet : essai de « ' + (next.label || next.deviceId.slice(0, 8)) + ' »');
+                        showMicHint('Ce micro n\'envoie que du silence : j\'essaie « ' + (next.label || 'un autre micro') + ' »…');
+                        S.micTried = S.micTried || new Set(); S.micTried.add(next.deviceId);
+                        micChoice = next.deviceId;
+                        reopenMic().then(micWatch);
+                    } else {
+                        showMicHint(S.blocks === 0 ? 'Le son du micro n\'arrive pas. Touchez l\'écran, ou autorisez le micro puis recommencez.' : 'Aucun micro n\'envoie de son : sur Mac, autorisez Chrome dans Réglages Système > Confidentialité > Micro, ou choisissez un autre micro dans la liste.');
+                    }
+                });
             } else if (S.maxRms < 0.01 && S.state === 'idle') {
                 showMicHint('Je vous entends à peine : parlez plus près du micro.');
             }
         }, 3000);
+    }
+    // Micros disponibles (les noms n'apparaissent qu'une fois le micro autorisé)
+    async function listMics() {
+        try {
+            const devs = await navigator.mediaDevices.enumerateDevices();
+            return devs.filter(d => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
+        } catch (e) { return []; }
+    }
+    async function fillMicList() {
+        const mics = await listMics();
+        const cur = S.stream && S.stream.getAudioTracks()[0] && S.stream.getAudioTracks()[0].getSettings().deviceId;
+        el.micsel.innerHTML = '';
+        mics.forEach((d, i) => {
+            const o = document.createElement('option');
+            o.value = d.deviceId; o.textContent = d.label || ('Micro ' + (i + 1));
+            if (d.deviceId === cur) o.selected = true;
+            el.micsel.appendChild(o);
+        });
+        el.micsel.hidden = mics.length < 2;
+        S.micTried = S.micTried || new Set(); if (cur) S.micTried.add(cur);
     }
     async function reopenMic() {
         try {
@@ -167,6 +208,7 @@
             S.blocks = 0; S.maxRms = 0;
             await startMic();
             try { await S.ctx.resume(); } catch (e) { /* repris au toucher */ }
+            fillMicList();
         } catch (e) { diagLog('micro : réouverture impossible ' + (e && e.message)); }
     }
     function stopAudio() {
@@ -696,6 +738,8 @@
         el.capUser.textContent = ''; el.capBot.textContent = '';
         setState('idle');
         diagLog('--- ouverture · ' + navigator.userAgent);
+        S.micTried = new Set();
+        fillMicList();
         micWatch();
         clearInterval(S.meterTimer); S.meterTimer = setInterval(meterTick, 80);
         // Les petites réactions (« hm ») se préparent après le premier échange, pour ne pas peser sur le quota au départ
@@ -703,13 +747,19 @@
     }
     function end() {
         S.active = false;
-        clearTimeout(S.micTimer); clearInterval(S.meterTimer); el.meter.style.width = '0'; el.mic.textContent = '';
+        clearTimeout(S.micTimer); clearInterval(S.meterTimer); el.meter.style.width = '0'; el.mic.textContent = ''; el.micsel.hidden = true;
         interrupt();
         stopAudio();
         S.recording = false; S.chunks = []; S.preroll = [];
         el.start.hidden = false; el.mute.hidden = el.cut.hidden = el.stop.hidden = true; el.note.hidden = false;
         setState('idle');
     }
+    el.micsel.addEventListener('change', () => {
+        micChoice = el.micsel.value;
+        try { localStorage.setItem('avatar-micro', micChoice); } catch (e) { /* stockage indisponible */ }
+        S.micTried = new Set([micChoice]); S.rebuilt = false; S.maxRms = 0;
+        reopenMic().then(micWatch);
+    });
     el.start.addEventListener('click', begin);
     el.stop.addEventListener('click', end);
     el.cut.addEventListener('click', () => { if (S.state === 'speaking' || S.state === 'thinking') { interrupt(); setState('idle'); } });
