@@ -14,14 +14,28 @@
     // sans changer sa hauteur (étirement temporel) pour que la voix parle plus lentement qu'une lecture accélérée.
     // Garçon : voix masculine « Paul » (lit le français avec un léger accent), hauteur +30 %.
     const VOICES = {
-        garcon: { id: 'en_paul_happy', pitch: 1.3, speed: 0.9, label: 'Voix : garçon' },
+        garcon: { id: 'en_paul_happy', pitch: 1.45, speed: 0.9, label: 'Voix : garçon' },
         fille: { id: 'fr_marie_happy', pitch: 1.17, speed: 0.92, label: 'Voix : fille' },
-        adulte: { id: 'fr_marie_neutral', pitch: 1, speed: 0.95, label: 'Voix : adulte' }
+        adulte: { id: 'fr_marie_neutral', pitch: 1, speed: 0.95, label: 'Voix : adulte' },
+        // Voix clonée à partir d'un enregistrement de l'utilisateur (ref_audio de Mistral, sans accent), jouée plus aiguë
+        clone: { id: null, pitch: 1.3, speed: 0.9, label: 'Voix : enregistrée' }
     };
-    const VOICE_ORDER = ['garcon', 'fille', 'adulte'];
+    const refAudio = () => { try { return localStorage.getItem('avatar-ref-b64') || ''; } catch (e) { return ''; } };
+    const voiceOrder = () => ['garcon', 'fille', 'adulte'].concat(refAudio() ? ['clone'] : []);
+    // Hauteur réglable (boutons « Plus aigu / Plus grave »), mémorisée par voix
+    let pitchAdj = (function () { try { return JSON.parse(localStorage.getItem('avatar-hauteur') || '{}'); } catch (e) { return {}; } })();
     let voiceKind = (function () { try { return localStorage.getItem('avatar-voix2') || 'garcon'; } catch (e) { return 'garcon'; } })();
-    if (!VOICES[voiceKind]) voiceKind = 'garcon';
-    const voice = () => VOICES[voiceKind];
+    if (!VOICES[voiceKind] || (voiceKind === 'clone' && !refAudio())) voiceKind = 'garcon';
+    const voice = () => {
+        const v = VOICES[voiceKind];
+        return { ...v, pitch: Math.max(0.8, Math.min(1.9, v.pitch + (pitchAdj[voiceKind] || 0))) };
+    };
+    // Corps de la requête de voix : voix intégrée, ou voix clonée à partir de l'enregistrement
+    function ttsBody(text) {
+        const b = { model: TTS_MODEL, input: text, response_format: 'pcm', stream: true };
+        if (voiceKind === 'clone' && refAudio()) b.ref_audio = refAudio(); else b.voice_id = VOICES[voiceKind === 'clone' ? 'fille' : voiceKind].id;
+        return b;
+    }
     const BLOCK = 2048;                  // blocs du micro (~43 ms à 48 kHz)
     const PREROLL_BLOCKS = 14;           // ~0,6 s gardées avant la détection
     const START_BLOCKS = 3;              // début de parole : 3 blocs sur 10 au-dessus du seuil
@@ -46,7 +60,7 @@
     // ---------- Éléments ----------
     const $ = (id) => document.getElementById(id);
     const el = { face: $('face'), status: $('status'), capUser: $('cap-user'), capBot: $('cap-bot'),
-        micsel: $('micsel'), mic: $('mic'), meter: $('meter-bar'), head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
+        pitchUp: $('pitch-up'), pitchDown: $('pitch-down'), pitchInfo: $('pitch-info'), rec: $('rec'), micsel: $('micsel'), mic: $('mic'), meter: $('meter-bar'), head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
     const HEADS = { lapin: window.AvatarRabbit, marie: window.AvatarFace };
     const HEAD_LABEL = { lapin: 'Tête : lapin', marie: 'Tête : visage' };
     let headName = (function () { try { return localStorage.getItem('avatar-tete') || 'lapin'; } catch (e) { return 'lapin'; } })();
@@ -56,10 +70,22 @@
     document.body.classList.toggle('lapin', headName === 'lapin');
     el.head.textContent = HEAD_LABEL[headName];
     el.voiceBtn.textContent = VOICES[voiceKind].label;
+    function changePitch(d) {
+        pitchAdj[voiceKind] = Math.round(((pitchAdj[voiceKind] || 0) + d) * 100) / 100;
+        const v = voice();
+        try { localStorage.setItem('avatar-hauteur', JSON.stringify(pitchAdj)); } catch (e) { /* stockage indisponible */ }
+        el.pitchInfo.textContent = 'hauteur ×' + v.pitch.toFixed(2);
+        S.bcBuffers = []; S.bcStarted = false;
+    }
+    el.pitchUp.addEventListener('click', () => changePitch(0.07));
+    el.pitchDown.addEventListener('click', () => changePitch(-0.07));
+    el.pitchInfo.textContent = 'hauteur ×' + voice().pitch.toFixed(2);
     el.voiceBtn.addEventListener('click', () => {
-        voiceKind = VOICE_ORDER[(VOICE_ORDER.indexOf(voiceKind) + 1) % VOICE_ORDER.length];
+        const order = voiceOrder();
+        voiceKind = order[(order.indexOf(voiceKind) + 1) % order.length];
         try { localStorage.setItem('avatar-voix2', voiceKind); } catch (e) { /* stockage indisponible */ }
         el.voiceBtn.textContent = VOICES[voiceKind].label;
+        el.pitchInfo.textContent = 'hauteur ×' + voice().pitch.toFixed(2);
         S.bcBuffers = []; S.bcStarted = false;   // les petites réactions sont refaites avec la nouvelle voix
     });
     el.head.addEventListener('click', () => {
@@ -523,7 +549,7 @@
         const res = await mistral('/v1/audio/speech', {
             method: 'POST', signal: abort.signal,
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + mistralKey() },
-            body: JSON.stringify({ model: TTS_MODEL, input: text, response_format: 'pcm', voice_id: voice().id, stream: true })
+            body: JSON.stringify(ttsBody(text))
         }, 3);
         if (!res.ok) throw new Error('Mistral ' + res.status);
         const parts = [];
@@ -661,7 +687,7 @@
             try {
                 const res = await mistral('/v1/audio/speech', { method: 'POST',
                     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + mistralKey() },
-                    body: JSON.stringify({ model: TTS_MODEL, input: text, response_format: 'pcm', voice_id: voice().id, stream: true }) }, 2);
+                    body: JSON.stringify(ttsBody(text)) }, 2);
                 if (!res.ok) { diagLog('réactions vocales abandonnées (' + res.status + ')'); return; }
                 const parts = [];
                 await readPcm(res, 'bc', (s) => parts.push(s));
@@ -734,6 +760,7 @@
         S.rebuilt = false; S.maxRms = 0; S.blocks = 0;
         try { await startMic(); } catch (e) { el.capBot.textContent = 'Micro refusé : autorisez-le puis réessayez.'; stopAudio(); return; }
         S.active = true; S.muted = false; S.history = []; S.bcBuffers = [];
+        el.rec.hidden = true;
         el.start.hidden = true; el.mute.hidden = el.cut.hidden = el.stop.hidden = false; el.note.hidden = true;
         el.capUser.textContent = ''; el.capBot.textContent = '';
         setState('idle');
@@ -751,9 +778,49 @@
         interrupt();
         stopAudio();
         S.recording = false; S.chunks = []; S.preroll = [];
+        el.rec.hidden = false;
         el.start.hidden = false; el.mute.hidden = el.cut.hidden = el.stop.hidden = true; el.note.hidden = false;
         setState('idle');
     }
+    // « Enregistrer ma voix » : 8 s de parole, gardées dans le navigateur (WAV 16 kHz) et envoyées à Mistral comme modèle de voix
+    const REC_TEXT = '« Bonjour, je m\'appelle David Twenty. Aujourd\'hui, j\'ai très envie de discuter avec toi de plein de choses amusantes. »';
+    async function recordVoice() {
+        if (S.active) return;
+        el.rec.disabled = true;
+        let stream = null, ctx2 = null;
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: true, channelCount: 1, ...(micChoice ? { deviceId: { exact: micChoice } } : {}) } });
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            ctx2 = new Ctx();
+            try { await ctx2.resume(); } catch (e) { /* repris au toucher */ }
+            const src = ctx2.createMediaStreamSource(stream);
+            const proc = ctx2.createScriptProcessor(BLOCK, 1, 1);
+            const sink = ctx2.createGain(); sink.gain.value = 0;
+            const chunks = []; let peak = 0;
+            proc.onaudioprocess = (e) => { const d = new Float32Array(e.inputBuffer.getChannelData(0)); chunks.push(d); for (let i = 0; i < d.length; i += 16) peak = Math.max(peak, Math.abs(d[i])); };
+            src.connect(proc); proc.connect(sink); sink.connect(ctx2.destination);
+            el.capUser.textContent = 'Lisez à voix haute : ' + REC_TEXT;
+            for (let t = 9; t > 0; t--) { el.rec.textContent = 'Enregistrement… ' + t + ' s'; await sleep(1000); }
+            proc.onaudioprocess = null;
+            if (peak < 0.02) throw new Error('Aucun son n\'a été enregistré (micro muet ou trop faible).');
+            const blob = toWav(chunks, ctx2.sampleRate);
+            const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
+            localStorage.setItem('avatar-ref-b64', b64);
+            voiceKind = 'clone';
+            try { localStorage.setItem('avatar-voix2', voiceKind); } catch (e) { /* stockage indisponible */ }
+            el.voiceBtn.textContent = VOICES[voiceKind].label;
+            el.pitchInfo.textContent = 'hauteur ×' + voice().pitch.toFixed(2);
+            el.capUser.textContent = 'Voix enregistrée. Lancez la conversation pour l\'entendre ; « Plus aigu » la rend plus enfantine.';
+            diagLog('voix enregistrée (' + Math.round(b64.length / 1024) + ' Ko)');
+        } catch (e) {
+            el.capUser.textContent = 'Enregistrement impossible : ' + String(e && e.message || e).slice(0, 120);
+        } finally {
+            try { stream && stream.getTracks().forEach(t => t.stop()); } catch (e) { /* déjà arrêté */ }
+            try { ctx2 && ctx2.close(); } catch (e) { /* déjà fermé */ }
+            el.rec.disabled = false; el.rec.textContent = 'Enregistrer une voix';
+        }
+    }
+    el.rec.addEventListener('click', recordVoice);
     el.micsel.addEventListener('change', () => {
         micChoice = el.micsel.value;
         try { localStorage.setItem('avatar-micro', micChoice); } catch (e) { /* stockage indisponible */ }
