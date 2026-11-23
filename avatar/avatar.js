@@ -15,7 +15,7 @@
     // Garçon : voix masculine « Paul » (lit le français avec un léger accent), hauteur +30 %.
     const VOICES = {
         garcon: { id: 'en_paul_happy', pitch: 1.6, speed: 0.92, label: 'Voix : garçon' },
-        fille: { id: 'fr_marie_happy', pitch: 1.3, speed: 0.92, label: 'Voix : fille' },
+        fille: { id: 'fr_marie_happy', pitch: 1.58, speed: 0.92, label: 'Voix : fille' },
         adulte: { id: 'fr_marie_neutral', pitch: 1, speed: 0.95, label: 'Voix : adulte' },
         // Voix clonée à partir d'un enregistrement de l'utilisateur (ref_audio de Mistral, sans accent), jouée plus aiguë
         clone: { id: null, pitch: 1.45, speed: 0.92, label: 'Voix : enregistrée' }
@@ -23,9 +23,9 @@
     const refAudio = () => { try { return localStorage.getItem('avatar-ref-b64') || ''; } catch (e) { return ''; } };
     const voiceOrder = () => ['garcon', 'fille', 'adulte'].concat(refAudio() ? ['clone'] : []);
     // Hauteur réglable (boutons « Plus aigu / Plus grave »), mémorisée par voix
-    let pitchAdj = (function () { try { return JSON.parse(localStorage.getItem('avatar-hauteur') || '{}'); } catch (e) { return {}; } })();
-    let voiceKind = (function () { try { return localStorage.getItem('avatar-voix2') || 'garcon'; } catch (e) { return 'garcon'; } })();
-    if (!VOICES[voiceKind] || (voiceKind === 'clone' && !refAudio())) voiceKind = 'garcon';
+    let pitchAdj = (function () { try { return JSON.parse(localStorage.getItem('avatar-hauteur2') || '{}'); } catch (e) { return {}; } })();
+    let voiceKind = (function () { try { return localStorage.getItem('avatar-voix3') || 'fille'; } catch (e) { return 'fille'; } })();
+    if (!VOICES[voiceKind] || (voiceKind === 'clone' && !refAudio())) voiceKind = 'fille';
     const voice = () => {
         const v = VOICES[voiceKind];
         return { ...v, pitch: Math.max(0.8, Math.min(2.3, v.pitch + (pitchAdj[voiceKind] || 0))) };
@@ -84,7 +84,7 @@
     function changePitch(d) {
         pitchAdj[voiceKind] = Math.round(((pitchAdj[voiceKind] || 0) + d) * 100) / 100;
         const v = voice();
-        try { localStorage.setItem('avatar-hauteur', JSON.stringify(pitchAdj)); } catch (e) { /* stockage indisponible */ }
+        try { localStorage.setItem('avatar-hauteur2', JSON.stringify(pitchAdj)); } catch (e) { /* stockage indisponible */ }
         el.pitchInfo.textContent = 'hauteur ×' + v.pitch.toFixed(2);
         S.bcBuffers = []; S.bcStarted = false;
     }
@@ -94,7 +94,7 @@
     el.voiceBtn.addEventListener('click', () => {
         const order = voiceOrder();
         voiceKind = order[(order.indexOf(voiceKind) + 1) % order.length];
-        try { localStorage.setItem('avatar-voix2', voiceKind); } catch (e) { /* stockage indisponible */ }
+        try { localStorage.setItem('avatar-voix3', voiceKind); } catch (e) { /* stockage indisponible */ }
         el.voiceBtn.textContent = VOICES[voiceKind].label;
         el.pitchInfo.textContent = 'hauteur ×' + voice().pitch.toFixed(2);
         S.bcBuffers = []; S.bcStarted = false;   // les petites réactions sont refaites avec la nouvelle voix
@@ -188,13 +188,24 @@
     }
     // Le micro doit envoyer des blocs et du signal : sinon on relance le contexte audio une fois, puis on le dit à l'écran
     function showMicHint(t) { el.capUser.textContent = t; }
-    function micWatch() {
+    function micWatch(delay = 3000) {
         clearTimeout(S.micTimer);
         S.micTimer = setTimeout(() => {
             if (!S.active || !S.stream) return;
             diagLog(`micro : ${S.blocks} blocs, pic ${S.maxRms.toFixed(4)}, seuil ${Math.max(0.004, S.floor * 3).toFixed(4)}, ${S.ctx.state}`);
             if (S.ctx.state !== 'running') { try { S.ctx.resume(); } catch (e) { /* repris au toucher */ } }
             if (S.blocks === 0 || S.maxRms === 0) {
+                // Micro choisi à la main : on ne le change JAMAIS tout seul. Les micros Bluetooth (AirPods) mettent plusieurs secondes à démarrer.
+                if (S.manualMic) {
+                    S.manualTries = (S.manualTries || 0) + 1;
+                    if (S.manualTries < 5) {
+                        showMicHint('J\'attends le micro choisi (les AirPods mettent parfois quelques secondes à s\'activer)…');
+                        micWatch(4000);
+                    } else {
+                        showMicHint('Ce micro n\'envoie que du silence. Choisissez-en un autre dans la liste, ou vérifiez ses réglages.');
+                    }
+                    return;
+                }
                 if (!S.rebuilt) {
                     S.rebuilt = true;
                     diagLog('micro : aucun signal, contexte recréé');
@@ -216,7 +227,7 @@
             } else if (S.maxRms < 0.01 && S.state === 'idle') {
                 showMicHint('Je vous entends à peine : parlez plus près du micro.');
             }
-        }, 3000);
+        }, delay);
     }
     // Micros disponibles (les noms n'apparaissent qu'une fois le micro autorisé)
     async function listMics() {
@@ -235,7 +246,7 @@
             if (d.deviceId === cur) o.selected = true;
             el.micsel.appendChild(o);
         });
-        el.micsel.hidden = mics.length < 2;
+        el.micsel.hidden = mics.length < 1;
         S.micTried = S.micTried || new Set(); if (cur) S.micTried.add(cur);
     }
     async function reopenMic() {
@@ -776,7 +787,7 @@
         el.capUser.textContent = ''; el.capBot.textContent = '';
         setState('idle');
         diagLog('--- ouverture · ' + navigator.userAgent);
-        S.micTried = new Set();
+        S.micTried = new Set(); S.manualMic = !!micChoice; S.manualTries = 0;   // un micro mémorisé est un choix de l'utilisateur
         fillMicList();
         micWatch();
         clearInterval(S.meterTimer); S.meterTimer = setInterval(meterTick, 80);
@@ -818,7 +829,7 @@
             const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(blob); });
             localStorage.setItem('avatar-ref-b64', b64);
             voiceKind = 'clone';
-            try { localStorage.setItem('avatar-voix2', voiceKind); } catch (e) { /* stockage indisponible */ }
+            try { localStorage.setItem('avatar-voix3', voiceKind); } catch (e) { /* stockage indisponible */ }
             el.voiceBtn.textContent = VOICES[voiceKind].label;
             el.pitchInfo.textContent = 'hauteur ×' + voice().pitch.toFixed(2);
             el.capUser.textContent = 'Voix enregistrée. Lancez la conversation pour l\'entendre ; « Plus aigu » la rend plus enfantine.';
@@ -849,8 +860,10 @@
     el.micsel.addEventListener('change', () => {
         micChoice = el.micsel.value;
         try { localStorage.setItem('avatar-micro', micChoice); } catch (e) { /* stockage indisponible */ }
+        S.manualMic = true; S.manualTries = 0;
         S.micTried = new Set([micChoice]); S.rebuilt = false; S.maxRms = 0;
-        reopenMic().then(micWatch);
+        diagLog('micro choisi à la main : ' + (el.micsel.options[el.micsel.selectedIndex] || {}).textContent);
+        reopenMic().then(() => micWatch(5000));
     });
     el.start.addEventListener('click', begin);
     el.stop.addEventListener('click', end);
