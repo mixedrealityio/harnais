@@ -13,6 +13,8 @@
     const MOUTH = [488, 748];                       // sous le museau, sur l'axe du visage (milieu des yeux ≈ 485, nez ≈ 490)
     const PIVOT = { L: [320, 310], R: [655, 310] }; // base de chaque oreille
     const JAW = { x: 373, y: 700, w: 230, h: 105 }; // bas du museau, qui descend quand la bouche s'ouvre
+    const FOREHEAD = { x: 490, y: 440, rx: 190, ry: 125 };   // front : entre les oreilles et les yeux
+    const CHEEKS = [{ x: 320, y: 705, rx: 105, ry: 85 }, { x: 665, y: 705, rx: 105, ry: 85 }];   // joues, de part et d'autre du museau
     const RESERVE_CSS = 210;                        // hauteur gardée en bas pour le texte et les boutons
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const lerp = (a, b, t) => a + (b - a) * t;
@@ -67,7 +69,7 @@
             tilt: 0, ttilt: 0, nod: 0, nodV: 0, bounce: 0, listenLevel: 0, t: 0,
             swayPhase: rnd(0, 6), swayEnergy: 0, bodyRot: 0, bodyRotPrev: 0,
             ear: { L: { a: 0, v: 0 }, R: { a: 0, v: 0 } }, earTwitchT: rnd(3, 7),
-            pet: 0, petTotal: 0, hearts: [], heartT: 0
+            pet: 0, petTotal: 0, hearts: [], heartT: 0, stars: [], starT: 0, carrots: [], carrotT: 0
         };
         let dpr = 1, last = performance.now(), running = true, petCb = null;
         let view = { cx0: 0, cy0: 0, sc: 1, cx: 0, cy: 0 };   // pour convertir un point de l'écran en point de l'image
@@ -109,6 +111,45 @@
             s.hearts.push({ x: X + rnd(-18, 18) * dpr, y: Y - rnd(6, 24) * dpr, age: 0, life: rnd(1.3, 2.1), size: rnd(9, 19) * dpr,
                 vy: rnd(55, 95) * dpr, wob: rnd(10, 26) * dpr, ph: rnd(0, 6.3), col: cols[Math.floor(Math.random() * cols.length)], rot: rnd(-0.35, 0.35) });
         }
+        function foreheadAt(ix, iy) {
+            const dx = (ix - FOREHEAD.x) / FOREHEAD.rx, dy = (iy - FOREHEAD.y) / FOREHEAD.ry;
+            return dx * dx + dy * dy <= 1;
+        }
+        function cheekAt(ix, iy) {
+            return CHEEKS.some(c => { const dx = (ix - c.x) / c.rx, dy = (iy - c.y) / c.ry; return dx * dx + dy * dy <= 1; });
+        }
+        // Carottes : jaillissent de la joue dans tous les sens, et il en pleut un peu partout sur l'écran
+        function carrotBurst(X, Y, n, rain) {
+            const W = canvas.width;
+            for (let i = 0; i < n && s.carrots.length < 80; i++) {
+                const a = rnd(-Math.PI * 0.95, -Math.PI * 0.05), v = rnd(180, 520) * dpr;
+                s.carrots.push({ x: X + rnd(-12, 12) * dpr, y: Y, vx: Math.cos(a) * v * 0.9, vy: Math.sin(a) * v, g: rnd(520, 760) * dpr,
+                    age: 0, life: rnd(1.6, 2.6), size: rnd(15, 28) * dpr, rot: rnd(0, 6.3), spin: rnd(-5, 5) });
+            }
+            for (let i = 0; i < rain && s.carrots.length < 80; i++) {
+                s.carrots.push({ x: rnd(0.04, 0.96) * W, y: -rnd(10, 90) * dpr, vx: rnd(-40, 40) * dpr, vy: rnd(60, 220) * dpr, g: rnd(380, 620) * dpr,
+                    age: 0, life: rnd(1.8, 3), size: rnd(14, 27) * dpr, rot: rnd(0, 6.3), spin: rnd(-4, 4) });
+            }
+        }
+        function spawnCarrots(X, Y, gain) {
+            if (s.t < s.carrotT) return;
+            s.carrotT = s.t + clamp(0.22 - gain * 0.06, 0.1, 0.22);
+            carrotBurst(X, Y, 3 + Math.round(gain * 3), 2 + Math.round(gain * 2));
+        }
+        // Explosion d'étoiles : étoiles et étincelles projetées autour du doigt, qui ralentissent, retombent un peu et s'éteignent
+        function burst(X, Y, n) {
+            const cols = ['#ffd84a', '#fff3a6', '#ffffff', '#8fe3ff', '#ff9ad5', '#ffb347'];
+            for (let i = 0; i < n && s.stars.length < 90; i++) {
+                const a = rnd(0, Math.PI * 2), v = rnd(70, 260) * dpr;
+                s.stars.push({ x: X, y: Y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40 * dpr, age: 0, life: rnd(0.7, 1.3), size: rnd(7, 17) * dpr,
+                    rot: rnd(0, 6.3), spin: rnd(-6, 6), col: cols[Math.floor(Math.random() * cols.length)], spark: Math.random() < 0.35 });
+            }
+        }
+        function spawnStars(X, Y, gain) {
+            if (s.t < s.starT) return;
+            s.starT = s.t + clamp(0.2 - gain * 0.06, 0.09, 0.2);
+            burst(X, Y, 5 + Math.round(gain * 5));
+        }
         let pressed = false, lastPt = null;
         function onMove(ev) {
             if (!ready) return;
@@ -125,9 +166,29 @@
                 s.ear[side].v += (ev.clientX - lastPt[0] >= 0 ? 1 : -1) * gain * 1.0;   // le poil suit le doigt
                 if (petCb && s.petTotal > 1.6) { petCb(s.petTotal); s.petTotal = 0; }
             }
+            else if (!side && active && lastPt && foreheadAt(ix, iy)) {
+                const dist = Math.hypot(ev.clientX - lastPt[0], ev.clientY - lastPt[1]);
+                const gain = clamp(dist / 40, 0, 1.2);
+                s.pet = clamp(s.pet + gain * 0.3, 0, 1);       // content : yeux plissés
+                const r0 = canvas.getBoundingClientRect();
+                spawnStars((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, gain);
+            }
+            else if (!side && active && lastPt && cheekAt(ix, iy)) {
+                const dist = Math.hypot(ev.clientX - lastPt[0], ev.clientY - lastPt[1]);
+                const gain = clamp(dist / 40, 0, 1.2);
+                s.pet = clamp(s.pet + gain * 0.3, 0, 1);
+                const r0 = canvas.getBoundingClientRect();
+                spawnCarrots((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, gain);
+            }
             lastPt = [ev.clientX, ev.clientY];
         }
-        canvas.addEventListener('pointerdown', (ev) => { pressed = true; lastPt = [ev.clientX, ev.clientY]; try { canvas.setPointerCapture(ev.pointerId); } catch (e) { /* non pris en charge */ } });
+        canvas.addEventListener('pointerdown', (ev) => {
+            if (ready) {   // un simple toucher sur le front : une explosion d'étoiles
+                const [ix, iy] = toImage(ev);
+                if (!earAt(ix, iy) && cheekAt(ix, iy)) { const r0 = canvas.getBoundingClientRect(); carrotBurst((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, 7, 8); s.nodV = -3; }
+                if (!earAt(ix, iy) && foreheadAt(ix, iy)) { const r0 = canvas.getBoundingClientRect(); burst((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, 12); s.nodV = -3; }
+            }
+            pressed = true; lastPt = [ev.clientX, ev.clientY]; try { canvas.setPointerCapture(ev.pointerId); } catch (e) { /* non pris en charge */ } });
         canvas.addEventListener('pointermove', onMove);
         const release = () => { pressed = false; lastPt = null; };
         canvas.addEventListener('pointerup', release);
@@ -178,6 +239,15 @@
                 e.v += acc * dt; e.a += e.v * dt;
                 e.a = clamp(e.a, -0.11, 0.11);   // amplitude limitée : l'oreille reste attachée à la tête
             });
+            // Carottes : lancées, elles retombent en tournant
+            for (const c of s.carrots) { c.age += dt; c.x += c.vx * dt; c.y += c.vy * dt; c.vy += c.g * dt; c.vx *= Math.exp(-0.5 * dt); c.rot += c.spin * dt; }
+            s.carrots = s.carrots.filter(c => c.age < c.life && c.y < canvas.height + 80 * dpr);
+            // Étoiles : freinées, légère chute, disparition
+            for (const q of s.stars) {
+                q.age += dt; q.x += q.vx * dt; q.y += q.vy * dt;
+                const drag = Math.exp(-2.4 * dt); q.vx *= drag; q.vy = q.vy * drag + 90 * dpr * dt; q.rot += q.spin * dt;
+            }
+            s.stars = s.stars.filter(q => q.age < q.life);
             // Cœurs qui s'envolent
             for (const hh of s.hearts) { hh.age += dt; hh.y -= hh.vy * dt; hh.x += Math.cos(hh.age * 3.2 + hh.ph) * hh.wob * dt; }
             s.hearts = s.hearts.filter(hh => hh.age < hh.life);
@@ -291,6 +361,52 @@
                 ctx.restore();
             }
             ctx.restore();
+            // Carottes : corps orange en dégradé, quelques stries, fane verte
+            for (const c of s.carrots) {
+                const u = c.age / c.life, al = clamp(Math.min(c.age / 0.08, 1) * (1 - Math.max(0, u - 0.7) / 0.3), 0, 1);
+                const L = c.size * 2.1, Wd = c.size * 0.82;
+                ctx.save();
+                ctx.translate(c.x, c.y); ctx.rotate(c.rot); ctx.globalAlpha = al;
+                // fane
+                ctx.fillStyle = '#4cb544';
+                [[-0.5, -0.2], [0, -0.35], [0.5, -0.2]].forEach(([dx, dy]) => {
+                    ctx.beginPath(); ctx.ellipse(dx * Wd * 0.55, -L * 0.5 - c.size * (0.35 + dy * 0.2), Wd * 0.17, c.size * 0.5, dx * 0.7, 0, Math.PI * 2); ctx.fill();
+                });
+                // corps
+                const gr = ctx.createLinearGradient(-Wd / 2, 0, Wd / 2, 0);
+                gr.addColorStop(0, '#ff9a2e'); gr.addColorStop(0.5, '#ff7a12'); gr.addColorStop(1, '#e85d00');
+                ctx.fillStyle = gr; ctx.shadowColor = 'rgba(255,120,20,0.45)'; ctx.shadowBlur = c.size * 0.4;
+                ctx.beginPath();
+                ctx.moveTo(-Wd / 2, -L / 2);
+                ctx.quadraticCurveTo(-Wd / 2, -L / 2 - c.size * 0.18, 0, -L / 2 - c.size * 0.12);
+                ctx.quadraticCurveTo(Wd / 2, -L / 2 - c.size * 0.18, Wd / 2, -L / 2);
+                ctx.quadraticCurveTo(Wd * 0.38, L * 0.1, 0, L / 2);
+                ctx.quadraticCurveTo(-Wd * 0.38, L * 0.1, -Wd / 2, -L / 2);
+                ctx.fill();
+                ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(160,60,0,0.45)'; ctx.lineWidth = Math.max(1, c.size * 0.06);
+                [-0.28, -0.02, 0.24].forEach((t, i) => { const hw = Wd * (0.36 - i * 0.1); ctx.beginPath(); ctx.moveTo(-hw, L * t); ctx.lineTo(-hw * 0.2, L * t + c.size * 0.07); ctx.stroke(); });
+                ctx.restore();
+            }
+            // Étoiles : cinq branches, lueur dorée ; certaines sont de simples étincelles rondes
+            for (const q of s.stars) {
+                const u = q.age / q.life;
+                const al = clamp(Math.min(q.age / 0.05, 1) * (1 - u * u), 0, 1);
+                const z = q.size * (1.15 - 0.55 * u);
+                ctx.save();
+                ctx.translate(q.x, q.y); ctx.rotate(q.rot);
+                ctx.globalAlpha = al; ctx.fillStyle = q.col; ctx.shadowColor = q.col; ctx.shadowBlur = z * 0.9;
+                ctx.beginPath();
+                if (q.spark) { ctx.arc(0, 0, z * 0.28, 0, Math.PI * 2); }
+                else {
+                    for (let i = 0; i < 10; i++) {
+                        const rr = i % 2 === 0 ? z : z * 0.42, an = -Math.PI / 2 + i * Math.PI / 5;
+                        if (i === 0) ctx.moveTo(Math.cos(an) * rr, Math.sin(an) * rr); else ctx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr);
+                    }
+                    ctx.closePath();
+                }
+                ctx.fill();
+                ctx.restore();
+            }
             // Cœurs : légèrement penchés, grossissent un peu en montant, s'effacent à la fin
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             for (const hh of s.hearts) {
@@ -326,6 +442,8 @@
             nod(strength) { s.nodV = -(strength || 1) * 6; s.pulse = 1; },
             onPet(cb) { petCb = cb; },
             _pet(side) { s.pet = 1; s.ear[side].v += 3; const ix = side === 'L' ? 230 : 730, iy = 170; for (let i = 0; i < 6; i++) { s.heartT = 0; spawnHearts(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 1); s.hearts[s.hearts.length - 1].age = i * 0.2; } },   // essais : simule une caresse
+            _burst(ix, iy) { burst(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 14); },
+            _carrots(ix, iy) { carrotBurst(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 8, 10); },
             _state: s,
             stop() { running = false; window.removeEventListener('resize', resize); if (ro) ro.disconnect(); }
         };
