@@ -208,6 +208,9 @@
         spoken: '', pendingText: '', llmDone: true, botText: '', prevBot: '', ttsPending: 0, peak: 0, mem: '', memLog: (function () { try { return JSON.parse(localStorage.getItem('avatar-mem-log') || '[]'); } catch (e) { return []; } })(), memTurns: 0, memBusy: false, memDate: 0, blocks: 0, maxRms: 0, peakWin: 0, zeroBlocks: 0, rebuilt: false, micTimer: null, meterTimer: null
     };
 
+    // Contexte audio du chant (hors conversation) : déclaré ici car la bouche le consulte dès le chargement
+    const sing = { ctx: null, out: null, analyser: null, busy: false, timer: null };
+
     function setState(st) {
         if (S.state !== st) diagLog('état ' + st);
         S.state = st;
@@ -342,7 +345,7 @@
         el.meter.style.width = Math.min(100, Math.round(S.peakWin * 900)) + '%';
         S.peakWin *= 0.6;
     }
-    const botTalking = () => S.state === 'speaking' || S.ttsPending > 0 || !!(S.ctx && (S.ctx.currentTime < S.bcUntil || S.ctx.currentTime < S.playHead + 0.45));
+    const botTalking = () => S.state === 'speaking' || S.ttsPending > 0 || !!(S.ctx && (S.ctx.currentTime < S.bcUntil || S.ctx.currentTime < S.playHead + 0.45 || S.ctx.currentTime < (S.singUntil || 0)));
 
     // Sans micro (écho de l'avatar en cas de mauvaise annulation) : seuil plus haut pendant qu'elle parle
     function onAudio(e) {
@@ -810,8 +813,9 @@
     const tdata = new Float32Array(1024);
     function lipSync() {
         requestAnimationFrame(lipSync);
-        if (!S.analyser) { face.setMouth(0, 0.5); return; }
-        S.analyser.getFloatTimeDomainData(tdata);
+        const an = S.analyser || sing.analyser;
+        if (!an) { face.setMouth(0, 0.5); return; }
+        an.getFloatTimeDomainData(tdata);
         let sum = 0, zc = 0;
         for (let i = 0; i < tdata.length; i++) { sum += tdata[i] * tdata[i]; if (i && (tdata[i] > 0) !== (tdata[i - 1] > 0)) zc++; }
         const rms = Math.sqrt(sum / tdata.length);
@@ -927,10 +931,49 @@
         if (canMove()) face.setDance(false);
     }
     el.dance.addEventListener('click', () => (dance.on ? stopDance() : startDance(true)));
-    // Bonne réponse à une énigme : quelques secondes de danse (sans musique) et un mot de félicitations
+    // ---------- Chant : à chaque carotte gagnée, David Twenty chante la suite d'une chanson du domaine public ----------
+    function singEnsureContext() {
+        if (sing.ctx) return;
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        sing.ctx = new Ctx();
+        sing.out = sing.ctx.createGain(); sing.out.gain.value = 2.2;
+        sing.analyser = sing.ctx.createAnalyser(); sing.analyser.fftSize = 1024;
+        sing.out.connect(sing.analyser); sing.analyser.connect(sing.ctx.destination);
+    }
+    function singNext() {
+        if (!window.Chant || sing.busy) return false;
+        const n = window.Chant.next();
+        let c, dest, inConv = false;
+        if (S.ctx && S.active) { c = S.ctx; dest = S.out; inConv = true; }
+        else { try { singEnsureContext(); } catch (e) { return false; } c = sing.ctx; dest = sing.out; }
+        try { c.resume(); } catch (e) { /* repris au toucher */ }
+        const t0 = c.currentTime + 0.25;
+        const r = window.Chant.schedule(c, dest, t0, n.song, n.sec, { volume: inConv ? 0.35 : 0.5 });
+        sing.busy = true;
+        if (inConv) S.singUntil = r.fin + 0.6;
+        el.capBot.textContent = '♪ ' + n.texte + ' ♪';
+        diagLog('chant : ' + n.titre + ' (partie ' + (n.sec + 1) + ')');
+        // il danse en rythme, et la bouche suit la voix
+        const danceFree = !dance.on && canMove();
+        if (danceFree) face.setDance(true, n.song.bpm, () => Math.max(0, (c.currentTime - t0) * n.song.bpm / 60));
+        face.setState('speaking');
+        const ms = (r.fin - c.currentTime + 0.7) * 1000;
+        clearTimeout(sing.timer);
+        sing.timer = setTimeout(() => {
+            sing.busy = false;
+            if (danceFree && !dance.on && canMove()) face.setDance(false);
+            face.setState(S.state === 'transcribing' ? 'thinking' : S.state);
+            if (el.capBot.textContent.startsWith('♪')) el.capBot.textContent = '';
+        }, ms);
+        return true;
+    }
+
+    // Bonne réponse à une énigme : il chante (et danse) ; sans chant disponible, quelques secondes de danse et un mot de félicitations
     const CHEERS = ['Bravo, c\'est la bonne réponse !', 'Excellent, quel cerveau !', 'Oui, exactement, tu es très fort !', 'Génial, une bonne réponse de plus !', 'Magnifique, tu mérites des carottes !'];
     let lastCheer = 0;
     function celebrate(gain) {
+        if (singNext()) return;
+        if (sing.busy) return;
         if (!dance.on && canMove()) startDance(false, 5 + Math.min(gain || 1, 4));
         const now = Date.now();
         if (S.active && now - lastCheer > 15000) { lastCheer = now; quickSay(CHEERS[Math.floor(Math.random() * CHEERS.length)]); }
@@ -1074,5 +1117,5 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden && S.ctx && S.ctx.state !== 'running') { try { S.ctx.resume(); } catch (e) { /* repris au toucher */ } } });
 
     // Accès pour les essais (?test) : simule une phrase de l'utilisateur sans micro
-    window.avatar = { say, state: S, begin, end, newContext, watchEnd, quickSay, celebrate, startDance, stopDance, face: () => face };
+    window.avatar = { singNext, say, state: S, begin, end, newContext, watchEnd, quickSay, celebrate, startDance, stopDance, face: () => face };
 })();
