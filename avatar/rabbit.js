@@ -71,7 +71,8 @@
             tilt: 0, ttilt: 0, nod: 0, nodV: 0, bounce: 0, listenLevel: 0, t: 0,
             swayPhase: rnd(0, 6), swayEnergy: 0, bodyRot: 0, bodyRotPrev: 0,
             ear: { L: { a: 0, v: 0 }, R: { a: 0, v: 0 } }, earTwitchT: rnd(3, 7),
-            pet: 0, petTotal: 0, hearts: [], heartT: 0, stars: [], starT: 0, carrots: [], carrotT: 0
+            pet: 0, petTotal: 0, hearts: [], heartT: 0, stars: [], starT: 0, carrots: [], carrotT: 0,
+            dance: false, danceE: 0, bpm: 112, clock: null, lastBeat: -1
         };
         let dpr = 1, last = performance.now(), running = true, petCb = null;
         let view = { cx0: 0, cy0: 0, sc: 1, cx: 0, cy: 0 };   // pour convertir un point de l'écran en point de l'image
@@ -231,6 +232,17 @@
             s.mOpen = lerp(s.mOpen, target, k(34));
             s.mWide = lerp(s.mWide, s.mouthWide, k(20));
             s.bounce = lerp(s.bounce, st === 'speaking' ? s.mOpen : 0, k(18));
+            // Danse : l'énergie monte et retombe en douceur ; le rythme vient de la musique (horloge fournie) ou d'une horloge interne
+            s.danceE = lerp(s.danceE, s.dance ? 1 : 0, k(s.dance ? 3 : 2));
+            s.beat = s.clock ? s.clock() : s.t * (s.bpm / 60);
+            if (s.danceE > 0.05) {
+                const b0 = Math.floor(s.beat);
+                if (b0 !== s.lastBeat) {
+                    s.lastBeat = b0;
+                    s.nodV -= 3.2 * s.danceE;                                   // la tête rebondit à chaque temps
+                    if (b0 % 4 === 0 && s.stars.length < 40) { const w = canvas.width, h2 = canvas.height; for (let i = 0; i < 2; i++) burst(rnd(0.1, 0.9) * w, rnd(0.08, 0.5) * h2, 3); }   // confettis toutes les 4 mesures
+                }
+            }
             // Hochement
             s.nodV += (-s.nod * 80 - s.nodV * 10) * dt;
             s.nod += s.nodV * dt;
@@ -256,10 +268,10 @@
                 const e = s.ear[side], out = side === 'L' ? -1 : 1;
                 let pose = st === 'user' ? out * 0.07 : st === 'thinking' ? (side === 'L' ? -0.05 : 0.16) : out * 0.015;
                 pose += out * s.pet * 0.05;                                   // caresse : oreilles un peu en arrière, détendues
-                const wiggle = s.pet * 0.05 * Math.sin(s.t * 17 + (side === 'L' ? 0 : 1.7));
+                const wiggle = s.pet * 0.05 * Math.sin(s.t * 17 + (side === 'L' ? 0 : 1.7)) + s.danceE * 0.16 * Math.sin(Math.PI * 2 * s.beat * 0.5 + (side === 'L' ? 0 : 1.2));
                 const acc = -150 * (e.a - pose) - 11 * e.v - bodyVel * 1.1 + wiggle * 40 + (st === 'speaking' ? Math.sin(s.t * 9 + (side === 'L' ? 0 : 2)) * s.mOpen * 4 : 0);
                 e.v += acc * dt; e.a += e.v * dt;
-                e.a = clamp(e.a, -0.11, 0.11);   // amplitude limitée : l'oreille reste attachée à la tête
+                e.a = clamp(e.a, -0.11 - 0.2 * s.danceE, 0.11 + 0.2 * s.danceE);   // amplitude limitée : l'oreille reste attachée à la tête
             });
             // Gros cœurs : lancés, ils retombent en tournant
             for (const c of s.carrots) { c.age += dt; c.x += c.vx * dt; c.y += c.vy * dt; c.vy += c.g * dt; c.vx *= Math.exp(-0.5 * dt); c.rot += c.spin * dt; }
@@ -291,31 +303,36 @@
             const breath = Math.sin(s.t * 1.8) * 0.004;
             if (!ready) return;
 
-            const reserve = Math.min(RESERVE_CSS * dpr, h * 0.34);
-            const rh = h - reserve;
+            const botCss = parseFloat(canvas.dataset.bottom);   // place prise en bas par le texte et les boutons (mesurée par la page)
+            const reserve = Math.min((botCss > 0 ? botCss : RESERVE_CSS) * dpr, h * 0.5);
+            const topPx = (parseFloat(canvas.dataset.top) || 0) * dpr;   // place prise en haut par les énigmes
+            const rh = Math.max(120, h - reserve - topPx);
             const bw = BOX[2] - BOX[0], bh = BOX[3] - BOX[1];
             const sc = Math.min(rh * 0.92 / bh, w * 0.86 / bw);
             const cx = (BOX[0] + BOX[2]) / 2, cy = (BOX[1] + BOX[3]) / 2;
             const px = cx, py = BOX[3] - 10;
-            const ox = w / 2, oy = rh / 2 + rh * 0.03;
+            const ox = w / 2, oy = topPx + rh / 2 + rh * 0.03;
             view = { cx0: ox, cy0: oy, sc, cx, cy };
 
             // Halo derrière lui, qui réagit à la voix et aux caresses
-            const gl = ctx.createRadialGradient(w / 2, rh / 2, 10, w / 2, rh / 2, Math.min(w, rh) * 0.62);
+            const gl = ctx.createRadialGradient(w / 2, topPx + rh / 2, 10, w / 2, topPx + rh / 2, Math.min(w, rh) * 0.62);
             gl.addColorStop(0, `rgba(217,117,48,${0.16 + s.listenLevel * 0.2 + s.mOpen * 0.12 + s.pet * 0.14})`);
             gl.addColorStop(1, 'rgba(217,117,48,0)');
             ctx.fillStyle = gl; ctx.fillRect(0, 0, w, h);
 
             // Le lapin pivote autour de ses pieds et se déplace un peu d'un pied sur l'autre
-            const shift = Math.sin(s.swayPhase + 1.2) * (6 + 9 * s.swayEnergy);
-            const bob = -Math.abs(Math.sin(s.swayPhase)) * (2 + 4 * s.swayEnergy) - s.bounce * 6;
+            const dn = s.danceE, bt = s.beat || 0, ph = bt - Math.floor(bt);
+            const shift = Math.sin(s.swayPhase + 1.2) * (6 + 9 * s.swayEnergy) + dn * Math.sin(Math.PI * bt) * 42;
+            const bob = -Math.abs(Math.sin(s.swayPhase)) * (2 + 4 * s.swayEnergy) - s.bounce * 6 - dn * Math.abs(Math.sin(Math.PI * bt)) * 34;
+            const squash = dn * 0.07 * Math.exp(-ph * 5);                                  // écrasé à l'atterrissage de chaque temps
+            const m8 = bt % 8, twirl = dn > 0.5 && m8 < 1 ? Math.cos(2 * Math.PI * m8) : 1;   // un tour sur lui-même toutes les 8 temps
             ctx.save();
             ctx.translate(ox + shift * sc, oy + bob * sc);
             ctx.scale(sc, sc);
             ctx.translate(-cx, -cy);
             ctx.translate(px, py);
-            ctx.rotate(s.tilt + s.bodyRot);
-            ctx.scale(1 + breath, 1 + breath * 1.5 - s.nod * 0.012 + s.bounce * 0.016);
+            ctx.rotate(s.tilt + s.bodyRot + dn * Math.sin(Math.PI * bt + Math.PI / 2) * 0.1);
+            ctx.scale((1 + breath + squash * 0.6) * twirl, 1 + breath * 1.5 - s.nod * 0.012 + s.bounce * 0.016 - squash);
             ctx.translate(-px, -py);
 
             // Corps, puis oreilles (chacune pivote à sa base)
@@ -455,6 +472,7 @@
             setListenLevel(v) { s.listenLevel = lerp(s.listenLevel, clamp(v, 0, 1), 0.25); },
             nod(strength) { s.nodV = -(strength || 1) * 6; s.pulse = 1; },
             onPet(cb) { petCb = cb; },
+            setDance(on, bpm, clock) { s.dance = !!on; if (bpm) s.bpm = bpm; s.clock = clock || null; s.lastBeat = -1; },
             _pet(side) { s.pet = 1; s.ear[side].v += 3; const ix = side === 'L' ? 230 : 730, iy = 170; for (let i = 0; i < 6; i++) { s.heartT = 0; spawnHearts(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 1); s.hearts[s.hearts.length - 1].age = i * 0.2; } },   // essais : simule une caresse
             _burst(ix, iy) { burst(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 14); },
             _bigHearts(ix, iy) { carrotBurst(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 8, 10); },

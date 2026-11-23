@@ -38,3 +38,35 @@ body.lapin #profil { position: relative; z-index: 2; }
 #memoire div { display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 6px; flex-wrap: wrap; }
 #mem-info { font-size: 11px; color: var(--mut); }
 body.lapin #memoire { position: relative; z-index: 2; }
+
+/* --- Énigmes en haut à gauche (maths) et à droite (physique), afficheur de carottes au centre --- */
+#enigmes { position: fixed; top: max(6px, env(safe-area-inset-top)); left: 6px; right: 6px; z-index: 5; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 6px; pointer-events: none; align-items: start; }
+#enigmes > * { pointer-events: auto; }
+#carottes { grid-column: 1 / 3; justify-self: center; display: flex; align-items: center; gap: 6px; background: rgba(13,16,24,.85); border: 1px solid #3a3320; border-radius: 999px; padding: 3px 14px 3px 10px; font-weight: 700; font-size: 17px; color: #ffb347; box-shadow: 0 0 14px rgba(255,150,40,.18); }
+#carottes .ico { font-size: 19px; }
+#carottes.bump { animation: bump .5s ease; }
+@keyframes bump { 30% { transform: scale(1.28); box-shadow: 0 0 26px rgba(255,170,60,.7); } 100% { transform: scale(1); } }
+.enigme { background: rgba(13,16,24,.82); border: 1px solid #2a3148; border-radius: 12px; padding: 6px 8px; font-size: 11.5px; line-height: 1.3; backdrop-filter: blur(4px); min-width: 0; }
+.enigme header { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.enigme .tag { font-weight: 700; color: #8fa8ff; letter-spacing: .02em; }
+#enigme-p .tag { color: #6fd6a2; }
+.enigme .lvl { color: var(--mut); font-size: 10px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.enigme .min { padding: 0 8px; border-radius: 6px; font-size: 14px; line-height: 18px; background: transparent; border: 1px solid #2c3247; }
+.enigme .q { margin: 2px 0 5px; color: var(--fg); }
+.enigme .opts { display: grid; gap: 3px; }
+.enigme .opt { text-align: left; border-radius: 8px; padding: 4px 7px; font-size: 11.5px; line-height: 1.25; background: #1a2030; border: 1px solid #2c3247; }
+.enigme .opt:hover:not(:disabled) { border-color: #5b6aa8; }
+.enigme .opt.good { background: #14391f; border-color: #3fae62; color: #c8f7d7; }
+.enigme .opt.bad { background: #43181c; border-color: #b94a52; color: #ffd0d3; }
+.enigme .fb { margin: 4px 0 0; font-size: 11px; color: var(--mut); }
+.enigme .fb.ok { color: #7fe3a1; } .enigme .fb.ko { color: #ff9aa2; }
+.enigme.collapsed .body { display: none; }
+.enigme.shake { animation: shake .4s; }
+@keyframes shake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+.fly, .rain { position: fixed; z-index: 50; pointer-events: none; font-size: 22px; top: 0; }
+.fly { transform-origin: center; }
+@media (min-width: 900px) { #enigmes { left: 14px; right: 14px; grid-template-columns: minmax(220px, 300px) 1fr minmax(220px, 300px); } #carottes { grid-column: 2; grid-row: 1; } #enigme-m { grid-column: 1; grid-row: 1; } #enigme-p { grid-column: 3; grid-row: 1; } .enigme { font-size: 13px; } .enigme .opt { font-size: 13px; } }
+body:not(.lapin) #app { padding-top: var(--enigmes-h, 0px); }
+#controls button { padding: 7px 12px; font-size: 13px; }
+#controls button.primary { padding: 10px 20px; font-size: 15px; }
+#controls { gap: 6px; }

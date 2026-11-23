@@ -139,7 +139,7 @@
 
     // ---------- Éléments ----------
     const $ = (id) => document.getElementById(id);
-    const el = { face: $('face'), status: $('status'), capUser: $('cap-user'), capBot: $('cap-bot'),
+    const el = { dance: $('dance'), face: $('face'), status: $('status'), capUser: $('cap-user'), capBot: $('cap-bot'),
         memBtn: $('mem-btn'), memBox: $('memoire'), memText: $('mem-text'), memSave: $('mem-save'), memClear: $('mem-clear'), memInfo: $('mem-info'), profilBtn: $('profil-btn'), profilBox: $('profil'), profilText: $('profil-text'), profilSave: $('profil-save'), profilReset: $('profil-reset'), pitchUp: $('pitch-up'), pitchDown: $('pitch-down'), pitchInfo: $('pitch-info'), rec: $('rec'), micsel: $('micsel'), mic: $('mic'), meter: $('meter-bar'), head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
     const HEADS = { lapin: window.AvatarRabbit, marie: window.AvatarFace };
     const HEAD_LABEL = { lapin: 'Tête : lapin', marie: 'Tête : visage' };
@@ -171,7 +171,7 @@
     el.head.addEventListener('click', () => {
         headName = headName === 'lapin' ? 'marie' : 'lapin';
         try { localStorage.setItem('avatar-tete', headName); } catch (e) { /* stockage indisponible */ }
-        face.stop(); document.body.classList.toggle('lapin', headName === 'lapin'); face = HEADS[headName](el.face); attachPet(face);
+        face.stop(); document.body.classList.toggle('lapin', headName === 'lapin'); face = HEADS[headName](el.face); attachPet(face); if (dance.on && canMove()) face.setDance(true, DANCE_BPM, null);
         face.setState(S.state === 'transcribing' ? 'thinking' : S.state);
         el.head.textContent = HEAD_LABEL[headName];
     });
@@ -878,10 +878,80 @@
         watchEnd(gen);
     }
 
+    // ---------- Danse : le lapin danse sur un petit rythme généré (grosse caisse, charleston, basse, notes pincées) ----------
+    const DANCE_BPM = 112;
+    const dance = { on: false, actx: null, own: false, timer: null, next: 0, step: 0, startT: 0, master: null };
+    function canMove() { return typeof face.setDance === 'function'; }
+    function kick(c, t) { const o = c.createOscillator(), g = c.createGain(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12); g.gain.setValueAtTime(0.9, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28); o.connect(g); g.connect(dance.master); o.start(t); o.stop(t + 0.3); }
+    function hat(c, t, v) { const len = Math.floor(c.sampleRate * 0.05), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len); const n = c.createBufferSource(); n.buffer = buf; const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7000; const g = c.createGain(); g.gain.value = v; n.connect(f); f.connect(g); g.connect(dance.master); n.start(t); }
+    function tone(c, t, freq, type, vol, dur, cutoff) { const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.value = freq; let out = o; if (cutoff) { const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cutoff; o.connect(f); out = f; } g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); out.connect(g); g.connect(dance.master); o.start(t); o.stop(t + dur + 0.05); }
+    const BASS = [55, 55, 73.42, 65.41], PENTA = [261.63, 293.66, 329.63, 392, 440, 523.25, 587.33];
+    function scheduleBeats() {
+        const c = dance.actx; if (!c) return;
+        const eighth = 60 / DANCE_BPM / 2;
+        while (dance.next < c.currentTime + 0.3) {
+            const t = dance.next, st = dance.step, beat = Math.floor(st / 2), onBeat = st % 2 === 0;
+            if (onBeat) { kick(c, t); tone(c, t, BASS[Math.floor(beat / 2) % 4] * (beat % 2 ? 2 : 1), 'sawtooth', 0.22, 0.28, 420); }
+            else hat(c, t, 0.16);
+            if (st % 4 === 2) hat(c, t, 0.22);
+            if (Math.random() < 0.7) tone(c, t, PENTA[Math.floor(Math.random() * PENTA.length)] * (st % 16 > 7 ? 1 : 0.5), 'triangle', 0.1, 0.22);
+            dance.next += eighth; dance.step++;
+        }
+    }
+    function startDance(withMusic, seconds) {
+        if (dance.on) return;
+        dance.on = true; el.dance.textContent = 'Stop danse'; el.dance.setAttribute('aria-pressed', 'true');
+        let clock = null;
+        // Pas de musique pendant une conversation : le micro la reprendrait
+        if (withMusic && !S.active) {
+            try {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                dance.own = true; dance.actx = new Ctx();
+                dance.actx.resume();
+                dance.master = dance.actx.createGain(); dance.master.gain.value = 0.32; dance.master.connect(dance.actx.destination);
+                dance.startT = dance.next = dance.actx.currentTime + 0.12; dance.step = 0;
+                clock = () => Math.max(0, (dance.actx.currentTime - dance.startT) * DANCE_BPM / 60);
+                dance.timer = setInterval(scheduleBeats, 50);
+            } catch (e) { clock = null; }
+        }
+        if (canMove()) face.setDance(true, DANCE_BPM, clock);
+        if (seconds) dance.stopT = setTimeout(stopDance, seconds * 1000);
+    }
+    function stopDance() {
+        if (!dance.on) return;
+        dance.on = false; clearInterval(dance.timer); clearTimeout(dance.stopT);
+        try { dance.master && dance.master.disconnect(); } catch (e) { /* déjà détaché */ }
+        try { dance.own && dance.actx && dance.actx.close(); } catch (e) { /* déjà fermé */ }
+        dance.actx = dance.master = null; dance.own = false;
+        el.dance.textContent = 'Danse'; el.dance.setAttribute('aria-pressed', 'false');
+        if (canMove()) face.setDance(false);
+    }
+    el.dance.addEventListener('click', () => (dance.on ? stopDance() : startDance(true)));
+    // Bonne réponse à une énigme : quelques secondes de danse (sans musique) et un mot de félicitations
+    const CHEERS = ['Bravo, c\'est la bonne réponse !', 'Excellent, quel cerveau !', 'Oui, exactement, tu es très fort !', 'Génial, une bonne réponse de plus !', 'Magnifique, tu mérites des carottes !'];
+    let lastCheer = 0;
+    function celebrate(gain) {
+        if (!dance.on && canMove()) startDance(false, 5 + Math.min(gain || 1, 4));
+        const now = Date.now();
+        if (S.active && now - lastCheer > 15000) { lastCheer = now; quickSay(CHEERS[Math.floor(Math.random() * CHEERS.length)]); }
+    }
+
+    // La peluche doit rester entière au-dessus du texte et des boutons, quel que soit leur nombre de lignes
+    function layoutBottom() {
+        const first = $('micinfo');
+        if (!first || !el.face) return;
+        const y = first.getBoundingClientRect().top;
+        el.face.dataset.bottom = String(Math.max(110, Math.round(window.innerHeight - y + 4)));
+    }
+    if (window.ResizeObserver) { const ro2 = new ResizeObserver(layoutBottom); ['micinfo', 'caption', 'controls', 'note', 'profil', 'memoire'].forEach(id => { const n = $(id); if (n) ro2.observe(n); }); }
+    window.addEventListener('resize', layoutBottom);
+    layoutBottom();
+
     // ---------- Boutons ----------
     async function begin() {
         if (!mistralKey()) { el.capBot.textContent = 'Clé Mistral manquante : saisissez-la dans la configuration du harnais.'; return; }
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { el.capBot.textContent = 'Ce navigateur ne permet pas d\'utiliser le micro ici.'; return; }
+        if (dance.on && dance.own) { const keep = true; clearInterval(dance.timer); try { dance.master && dance.master.disconnect(); } catch (e) { /* déjà détaché */ } try { dance.actx && dance.actx.close(); } catch (e) { /* déjà fermé */ } dance.actx = dance.master = null; dance.own = false; if (canMove()) face.setDance(true, DANCE_BPM, null); }   // plus de musique pendant la conversation
         newContext();                                    // dans le geste de l'utilisateur (iPhone)
         S.rebuilt = false; S.maxRms = 0; S.blocks = 0;
         try { await startMic(); } catch (e) { el.capBot.textContent = 'Micro refusé : autorisez-le puis réessayez.'; stopAudio(); return; }
@@ -1004,5 +1074,5 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden && S.ctx && S.ctx.state !== 'running') { try { S.ctx.resume(); } catch (e) { /* repris au toucher */ } } });
 
     // Accès pour les essais (?test) : simule une phrase de l'utilisateur sans micro
-    window.avatar = { say, state: S, begin, end, newContext, watchEnd, face: () => face };
+    window.avatar = { say, state: S, begin, end, newContext, watchEnd, quickSay, celebrate, startDance, stopDance, face: () => face };
 })();

@@ -9,6 +9,17 @@
 <link rel="stylesheet" href="avatar.css">
 </head>
 <body>
+<div id="enigmes">
+  <div id="carottes" title="Vos carottes"><span class="ico">🥕</span><span class="n">0</span></div>
+  <section class="enigme" id="enigme-m" aria-label="Énigme de maths">
+    <header><span class="tag">∑ Maths</span><span class="lvl"></span><button class="min" type="button" aria-label="Réduire">–</button></header>
+    <div class="body"><p class="q"></p><div class="opts"></div><p class="fb"></p></div>
+  </section>
+  <section class="enigme" id="enigme-p" aria-label="Énigme de physique">
+    <header><span class="tag">⚛ Physique</span><span class="lvl"></span><button class="min" type="button" aria-label="Réduire">–</button></header>
+    <div class="body"><p class="q"></p><div class="opts"></div><p class="fb"></p></div>
+  </section>
+</div>
 <main id="app">
   <canvas id="face" aria-label="David Twenty"></canvas>
   <div id="status" aria-live="polite"></div>
@@ -29,6 +40,7 @@
     <button id="cut" hidden>Interrompre</button>
     <button id="stop" hidden>Terminer</button>
     <button id="head">Tête</button>
+    <button id="dance" aria-pressed="false">Danse</button>
     <button id="voice">Voix</button>
     <button id="pitch-down" title="Voix plus grave">− Grave</button>
     <button id="pitch-up" title="Voix plus aiguë">+ Aigu</button>
@@ -43,5 +55,6 @@
 <script src="face.js"></script>
 <script src="rabbit.js"></script>
 <script src="avatar.js"></script>
+<script src="enigmes.js"></script>
 </body>
 </html>
