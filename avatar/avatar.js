@@ -66,12 +66,81 @@
         'Quand on te pose une question de maths ou de physique, explique à l\'oral, simplement et étape par étape, en disant les formules en toutes lettres, comme un excellent professeur qui veut se faire comprendre.'
     ].join(' ');
     const getProfile = () => { try { return localStorage.getItem('avatar-profil') || PROFILE_DEFAULT; } catch (e) { return PROFILE_DEFAULT; } };
-    const systemPrompt = () => SYSTEM_BASE + '\n\nTon profil, que tu incarnes naturellement sans le réciter : ' + getProfile() + ' N\'invente aucun autre fait précis sur ta vie ou sur tes proches (pas de famille, de dates ni de lieux) : si on te le demande, réponds simplement que tu préfères ne pas en dire plus.'
+    const memoryBlock = () => S.mem ? '\n\nTa mémoire (ce que tu sais de la personne et de vos discussions passées ; utilise-la naturellement, sans la réciter, et sans rien inventer au-delà) :\n' + S.mem : '';
+    const systemPrompt = () => SYSTEM_BASE + memoryBlock() + '\n\nTon profil, que tu incarnes naturellement sans le réciter : ' + getProfile() + ' N\'invente aucun autre fait précis sur ta vie ou sur tes proches (pas de famille, de dates ni de lieux) : si on te le demande, réponds simplement que tu préfères ne pas en dire plus.'
+
+    // ---------- Mémoire persistante : gardée sur le serveur (un fichier par compte), enrichie après chaque discussion ----------
+    const MEM_API = '../avatar-memoire';
+    async function loadMemory() {
+        try {
+            const r = await fetch(MEM_API, { credentials: 'same-origin', cache: 'no-store' });
+            if (r.ok) {
+                const d = await r.json();
+                S.mem = String(d.memoire || ''); S.memDate = d.maj || 0;
+                try { localStorage.setItem('avatar-mem-cache', S.mem); } catch (e) { /* stockage indisponible */ }
+                return true;
+            }
+        } catch (e) { /* hors ligne : copie locale */ }
+        try { S.mem = S.mem || localStorage.getItem('avatar-mem-cache') || ''; } catch (e) { /* rien */ }
+        return false;
+    }
+    async function saveMemory(text) {
+        try {
+            const r = await fetch(MEM_API, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memoire: text }) });
+            if (r.ok) { const d = await r.json(); S.memDate = d.maj || 0; try { localStorage.setItem('avatar-mem-cache', text); } catch (e) { /* rien */ } return true; }
+        } catch (e) { /* réessayé à la prochaine mise à jour */ }
+        return false;
+    }
+    // Échanges pas encore versés dans la mémoire : gardés aussi dans le navigateur, pour ne rien perdre si l'onglet se ferme
+    function persistLog() { try { localStorage.setItem('avatar-mem-log', JSON.stringify(S.memLog.slice(-30))); } catch (e) { /* rien */ } }
+    function logTurn(user, bot) {
+        if (!user || !bot) return;
+        S.memLog.push({ role: 'user', content: user }, { role: 'assistant', content: bot });
+        if (S.memLog.length > 30) S.memLog.splice(0, S.memLog.length - 30);
+        S.memTurns++; persistLog();
+        if (S.memTurns >= 3) updateMemory();
+    }
+    const MEM_SYSTEM = [
+        'Tu tiens la mémoire à long terme d\'un avatar vocal appelé David Twenty. À partir de la mémoire actuelle et des nouveaux échanges, réécris la mémoire COMPLÈTE.',
+        'Garde et enrichis tout ce qui est utile et durable sur la personne qui parle : prénom, famille et proches, goûts, projets, études ou travail, humeurs importantes, promesses, sujets déjà abordés, ce qu\'elle aime ou n\'aime pas, et ce qui s\'est passé.',
+        'Format : une ligne par fait, commençant par « - », courtes, en français, 40 lignes au plus ; fusionne les doublons ; corrige un fait si la personne l\'a corrigé.',
+        'Termine par une ligne « - Dernière discussion : » résumant en une phrase la conversation la plus récente.',
+        'N\'invente rien, ne recopie pas de consigne, n\'ajoute aucun commentaire : réponds uniquement avec la liste.'
+    ].join(' ');
+    async function updateMemory() {
+        if (S.memBusy || !S.memLog.length || !mistralKey()) return;
+        const model = pickModel();
+        if (!model) { diagLog('mémoire : quota de chat épuisé, mise à jour reportée'); return; }
+        S.memBusy = true;
+        const sent = S.memLog.length;
+        try {
+            poolUse[model] = { win: minuteId(), n: used(model) + 1 };
+            const dialogue = S.memLog.map(m => (m.role === 'user' ? 'Personne : ' : 'David Twenty : ') + m.content).join('\n');
+            const res = await mistral('/v1/chat/completions', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + mistralKey() },
+                body: JSON.stringify({ model, stream: false, max_tokens: 900, temperature: 0.2,
+                    messages: [{ role: 'system', content: MEM_SYSTEM }, { role: 'user', content: 'Mémoire actuelle :\n' + (S.mem || '(vide)') + '\n\nNouveaux échanges :\n' + dialogue }] })
+            }, 1);
+            if (res.status === 429) { poolUse[model] = { win: minuteId(), n: PER_MODEL_PER_MIN }; diagLog('mémoire : 429, reportée'); return; }
+            if (!res.ok) { diagLog('mémoire : erreur ' + res.status); return; }
+            const d = await res.json();
+            let txt = String(d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content || '').replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim();
+            if (txt.length < 15) return;
+            // Garde-fou : une mémoire qui fond de moitié est suspecte (le modèle a oublié de recopier l'existant)
+            if (S.mem.length > 400 && txt.length < S.mem.length * 0.5) { diagLog('mémoire : mise à jour rejetée (trop courte)'); return; }
+            S.mem = txt.slice(0, 6000);
+            S.memLog.splice(0, sent); S.memTurns = 0; persistLog();
+            const ok = await saveMemory(S.mem);
+            diagLog('mémoire mise à jour (' + S.mem.split('\n').length + ' lignes)' + (ok ? '' : ', enregistrement serveur à refaire'));
+            if (!el.memBox.hidden) el.memText.value = S.mem;
+        } catch (e) { diagLog('mémoire : ' + String(e && e.message || e).slice(0, 80)); }
+        finally { S.memBusy = false; }
+    }
 
     // ---------- Éléments ----------
     const $ = (id) => document.getElementById(id);
     const el = { face: $('face'), status: $('status'), capUser: $('cap-user'), capBot: $('cap-bot'),
-        profilBtn: $('profil-btn'), profilBox: $('profil'), profilText: $('profil-text'), profilSave: $('profil-save'), profilReset: $('profil-reset'), pitchUp: $('pitch-up'), pitchDown: $('pitch-down'), pitchInfo: $('pitch-info'), rec: $('rec'), micsel: $('micsel'), mic: $('mic'), meter: $('meter-bar'), head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
+        memBtn: $('mem-btn'), memBox: $('memoire'), memText: $('mem-text'), memSave: $('mem-save'), memClear: $('mem-clear'), memInfo: $('mem-info'), profilBtn: $('profil-btn'), profilBox: $('profil'), profilText: $('profil-text'), profilSave: $('profil-save'), profilReset: $('profil-reset'), pitchUp: $('pitch-up'), pitchDown: $('pitch-down'), pitchInfo: $('pitch-info'), rec: $('rec'), micsel: $('micsel'), mic: $('mic'), meter: $('meter-bar'), head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
     const HEADS = { lapin: window.AvatarRabbit, marie: window.AvatarFace };
     const HEAD_LABEL = { lapin: 'Tête : lapin', marie: 'Tête : visage' };
     let headName = (function () { try { return localStorage.getItem('avatar-tete') || 'lapin'; } catch (e) { return 'lapin'; } })();
@@ -136,7 +205,7 @@
         floor: 0.002, hits: [], preroll: [], chunks: [], recording: false, speechStart: 0, lastVoiceAt: 0,
         lastBc: 0, bcUntil: 0, bcBuffers: [], lastNod: 0,
         history: [], gen: 0, llmAbort: null, voiceChain: Promise.resolve(), voiceAbort: null, sources: [], playHead: 0,
-        spoken: '', pendingText: '', llmDone: true, botText: '', prevBot: '', ttsPending: 0, peak: 0, blocks: 0, maxRms: 0, peakWin: 0, zeroBlocks: 0, rebuilt: false, micTimer: null, meterTimer: null
+        spoken: '', pendingText: '', llmDone: true, botText: '', prevBot: '', ttsPending: 0, peak: 0, mem: '', memLog: (function () { try { return JSON.parse(localStorage.getItem('avatar-mem-log') || '[]'); } catch (e) { return []; } })(), memTurns: 0, memBusy: false, memDate: 0, blocks: 0, maxRms: 0, peakWin: 0, zeroBlocks: 0, rebuilt: false, micTimer: null, meterTimer: null
     };
 
     function setState(st) {
@@ -514,6 +583,7 @@
             S.llmDone = true;
             S.history.push({ role: 'assistant', content: S.botText.trim() || '…' });
             watchEnd(gen);
+            logTurn(userText, S.botText.trim());
             if (!S.bcStarted) { S.bcStarted = true; setTimeout(() => { if (S.active) prepareBackchannels(); }, 6000); }
         } catch (err) {
             clearTimeout(S.wd);
@@ -752,15 +822,49 @@
     lipSync();
 
     // ---------- Caresses sur les oreilles : il réagit aussi de vive voix, de temps en temps ----------
-    const PET_PHRASES = ['Hihi, ça chatouille !', 'Oh, j\'adore les caresses !', 'Mmh, c\'est tout doux.', 'Oh là là, continue !'];
+    // 54 phrases de plaisir, par zone caressée (jamais plus d'une toutes les 12 s, sans répéter la précédente)
+    const PET_PHRASES = {
+        oreilles: [
+            'Mmh, mes oreilles, j\'adore ça !', 'Oh oui, juste là, derrière l\'oreille.', 'Hihi, ça me chatouille les oreilles !',
+            'Doucement, c\'est tout doux, c\'est trop bien.', 'Mes oreilles sont si contentes !', 'Ahh, c\'est exactement ce qu\'il me fallait.',
+            'Continue, mes oreilles adorent les caresses.', 'Oh là là, j\'ai des frissons jusqu\'au bout !', 'Mmmh, tu as des doigts magiques.',
+            'Mes grandes oreilles te disent merci !', 'Ça me fait des petits frissons partout.', 'Oh, je vais m\'endormir si tu continues.',
+            'Hihi, ça chatouille !', 'Oh, j\'adore les caresses !'
+        ],
+        front: [
+            'Oh, des étoiles plein les yeux !', 'Wouah, ça brille dans ma tête !', 'Hihi, tu me fais des feux d\'artifice !',
+            'Mon front adore ça, continue !', 'Oh, je vois des étoiles partout !', 'C\'est magique, tout scintille autour de moi.',
+            'Ça fait pétiller mes idées, tu sais.', 'Oh, quel bonheur sur mon front !', 'Mes pensées dansent comme des étincelles.',
+            'Encore, encore, c\'est tellement agréable !', 'Tu m\'as allumé comme un ciel de nuit !', 'Oh là là, continue !'
+        ],
+        joues: [
+            'Mmh, mes petites joues sont toutes douces.', 'Oh, des cœurs partout, j\'adore, merci !', 'Hihi, ça chatouille mes joues !',
+            'Oh là là, mon cœur fait boum boum !', 'Mes joues sont toutes rouges de bonheur.', 'Oh, c\'est une vraie pluie de cœurs !',
+            'Tu sais comment me faire plaisir, toi.', 'Des cœurs, des cœurs, je suis comblé !', 'Mes joues sont si contentes de tes câlins.',
+            'Oh, je me sens tout rempli d\'amour !', 'Hihi, je vais en attraper un tout de suite.', 'Doucement sur mes joues, c\'est trop mignon.',
+            'Quel beau bouquet de cœurs aujourd\'hui !', 'Mmmh, tes caresses sont meilleures qu\'un goûter.'
+        ],
+        ventre: [
+            'Hihi, ça chatouille mon ventre !', 'Oh, des gros cœurs, quelle belle surprise !', 'Mon petit ventre adore les câlins.',
+            'Arrête, arrête, hihi, ça me fait rire !', 'Des cœurs à gogo, c\'est la fête !', 'Mmmh, c\'est tout chaud et tout doux.',
+            'Oh là là, j\'ai le ventre qui rigole !', 'Je suis un petit lapin tout content.', 'Encore un petit peu, c\'est trop bon !',
+            'Waouh, ça tombe des cœurs de partout !', 'Ça fait gargouiller mon ventre de joie.', 'Tu me chatouilles, je ne peux plus m\'arrêter de rire.',
+            'Quel bonheur, j\'adore les gros câlins !'
+        ]
+    };
+    const lastPet = {};
     function attachPet(f) { if (f && typeof f.onPet === 'function') f.onPet(handlePet); }
-    function handlePet() {
+    function handlePet(total, zone) {
         const now = Date.now();
-        if (!S.active || now - (S.lastPetSay || 0) < 25000) return;
+        if (!S.active || now - (S.lastPetSay || 0) < 12000) return;
         if (S.state === 'speaking' || S.state === 'thinking' || S.state === 'transcribing' || S.recording) return;
         S.lastPetSay = now;
-        diagLog('caresse : réaction vocale');
-        quickSay(PET_PHRASES[Math.floor(Math.random() * PET_PHRASES.length)]);
+        const list = PET_PHRASES[zone] || PET_PHRASES.oreilles;
+        let i = Math.floor(Math.random() * list.length);
+        if (i === lastPet[zone] && list.length > 1) i = (i + 1) % list.length;   // pas deux fois la même de suite
+        lastPet[zone] = i;
+        diagLog('caresse (' + zone + ') : ' + list[i]);
+        quickSay(list[i]);
     }
     // Une phrase toute faite, sans passer par le modèle de réponse (pas de requête de chat)
     function quickSay(text) {
@@ -787,6 +891,7 @@
         el.capUser.textContent = ''; el.capBot.textContent = '';
         setState('idle');
         diagLog('--- ouverture · ' + navigator.userAgent);
+        loadMemory();                                    // la mémoire du serveur peut avoir changé depuis un autre appareil
         S.micTried = new Set(); S.manualMic = !!micChoice; S.manualTries = 0;   // un micro mémorisé est un choix de l'utilisateur
         fillMicList();
         micWatch();
@@ -795,6 +900,7 @@
         S.bcStarted = false;
     }
     function end() {
+        updateMemory();   // verse les derniers échanges dans la mémoire avant de partir
         S.active = false;
         clearTimeout(S.micTimer); clearInterval(S.meterTimer); el.meter.style.width = '0'; el.mic.textContent = ''; el.micsel.hidden = true;
         interrupt();
@@ -843,6 +949,25 @@
         }
     }
     el.rec.addEventListener('click', recordVoice);
+    // Mémoire : voir, corriger, effacer
+    function memInfoText() { return S.memDate ? 'Dernière mise à jour : ' + new Date(S.memDate * 1000).toLocaleString('fr-FR') : 'Mémoire vide'; }
+    el.memBtn.addEventListener('click', async () => {
+        el.memBox.hidden = !el.memBox.hidden;
+        if (!el.memBox.hidden) { await loadMemory(); el.memText.value = S.mem; el.memInfo.textContent = memInfoText(); }
+    });
+    el.memSave.addEventListener('click', async () => {
+        S.mem = el.memText.value.trim();
+        const ok = await saveMemory(S.mem);
+        el.capUser.textContent = ok ? 'Mémoire enregistrée sur le serveur.' : 'Enregistrement impossible, réessayez.';
+        el.memBox.hidden = true;
+    });
+    el.memClear.addEventListener('click', async () => {
+        if (!window.confirm('Effacer toute la mémoire de David Twenty ?')) return;
+        S.mem = ''; S.memLog = []; S.memTurns = 0; persistLog();
+        await saveMemory('');
+        el.memText.value = ''; el.memInfo.textContent = 'Mémoire vide';
+    });
+    loadMemory().then(() => { if (S.memLog.length) updateMemory(); });   // échanges d'une session interrompue : versés dès que possible
     // Profil : s'applique à la prochaine réponse
     el.profilBtn.addEventListener('click', () => {
         el.profilBox.hidden = !el.profilBox.hidden;

@@ -16,6 +16,7 @@
     const FOREHEAD = { x: 490, y: 440, rx: 190, ry: 125 };   // front : entre les oreilles et les yeux
     const CHEEKS = [{ x: 320, y: 705, rx: 105, ry: 85 }, { x: 665, y: 705, rx: 105, ry: 85 }];   // joues, de part et d'autre du museau
     const BELLY = { x: 490, y: 1085, rx: 225, ry: 185 };   // ventre : la salopette bleue
+    const HEART_COLS = [['#ff8fb1', '#ff2e6e'], ['#ffb3c8', '#ff5c8a'], ['#ff6b8b', '#d90f4a'], ['#ff9ecd', '#e0338a'], ['#ffc1d6', '#ff4d7d']];   // [clair, foncé]
     const RESERVE_CSS = 210;                        // hauteur gardée en bas pour le texte et les boutons
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     const lerp = (a, b, t) => a + (b - a) * t;
@@ -66,7 +67,7 @@
 
         const s = {
             state: 'idle', mouthOpen: 0, mouthWide: 0.5, mOpen: 0, mWide: 0.5, pulse: 0,
-            blink: 0, blinkT: rnd(1.5, 4), blinkPhase: -1, squint: 0,
+            blink: 0, blinkT: rnd(0.8, 2.2), blinkPhase: -1, squint: 0,
             tilt: 0, ttilt: 0, nod: 0, nodV: 0, bounce: 0, listenLevel: 0, t: 0,
             swayPhase: rnd(0, 6), swayEnergy: 0, bodyRot: 0, bodyRotPrev: 0,
             ear: { L: { a: 0, v: 0 }, R: { a: 0, v: 0 } }, earTwitchT: rnd(3, 7),
@@ -119,17 +120,17 @@
         function cheekAt(ix, iy) {
             return CHEEKS.some(c => { const dx = (ix - c.x) / c.rx, dy = (iy - c.y) / c.ry; return dx * dx + dy * dy <= 1; });
         }
-        // Carottes : jaillissent de la joue dans tous les sens, et il en pleut un peu partout sur l'écran
+        // Gros cœurs : jaillissent de la joue ou du ventre dans tous les sens, et il en pleut un peu partout sur l'écran
         function carrotBurst(X, Y, n, rain, kind) {
             const W = canvas.width;
             for (let i = 0; i < n && s.carrots.length < 80; i++) {
                 const a = rnd(-Math.PI * 0.95, -Math.PI * 0.05), v = rnd(180, 520) * dpr;
                 s.carrots.push({ x: X + rnd(-12, 12) * dpr, y: Y, vx: Math.cos(a) * v * 0.9, vy: Math.sin(a) * v, g: rnd(520, 760) * dpr,
-                    age: 0, life: rnd(1.6, 2.6), size: rnd(15, 28) * dpr, rot: rnd(0, 6.3), spin: rnd(-5, 5), kind: kind || 'carrot' });
+                    age: 0, life: rnd(1.6, 2.6), size: rnd(28, 52) * dpr, rot: rnd(0, 6.3), spin: rnd(-5, 5), col: HEART_COLS[Math.floor(Math.random() * HEART_COLS.length)] });
             }
             for (let i = 0; i < rain && s.carrots.length < 80; i++) {
                 s.carrots.push({ x: rnd(0.04, 0.96) * W, y: -rnd(10, 90) * dpr, vx: rnd(-40, 40) * dpr, vy: rnd(60, 220) * dpr, g: rnd(380, 620) * dpr,
-                    age: 0, life: rnd(1.8, 3), size: rnd(14, 27) * dpr, rot: rnd(0, 6.3), spin: rnd(-4, 4), kind: kind || 'carrot' });
+                    age: 0, life: rnd(1.8, 3), size: rnd(26, 48) * dpr, rot: rnd(0, 6.3), spin: rnd(-4, 4), col: HEART_COLS[Math.floor(Math.random() * HEART_COLS.length)] });
             }
         }
         function bellyAt(ix, iy) {
@@ -155,6 +156,12 @@
             s.starT = s.t + clamp(0.2 - gain * 0.06, 0.09, 0.2);
             burst(X, Y, 5 + Math.round(gain * 5));
         }
+        // Chaque zone cumule ses caresses ; assez de caresses (ou un toucher) : on prévient l'avatar, qui répond de vive voix
+        const zoneAcc = {};
+        function petAcc(zone, gain) {
+            zoneAcc[zone] = (zoneAcc[zone] || 0) + gain * 0.16;
+            if (petCb && zoneAcc[zone] > 1.6) { petCb(zoneAcc[zone], zone); zoneAcc[zone] = 0; }
+        }
         let pressed = false, lastPt = null;
         function onMove(ev) {
             if (!ready) return;
@@ -165,11 +172,10 @@
                 const dist = Math.hypot(ev.clientX - lastPt[0], ev.clientY - lastPt[1]);
                 const gain = clamp(dist / 40, 0, 1.2);
                 s.pet = clamp(s.pet + gain * 0.5, 0, 1);
-                s.petTotal += gain * 0.16;
+                petAcc('oreilles', gain);
                 const r0 = canvas.getBoundingClientRect();
                 spawnHearts((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, gain);
                 s.ear[side].v += (ev.clientX - lastPt[0] >= 0 ? 1 : -1) * gain * 1.0;   // le poil suit le doigt
-                if (petCb && s.petTotal > 1.6) { petCb(s.petTotal); s.petTotal = 0; }
             }
             else if (!side && active && lastPt && foreheadAt(ix, iy)) {
                 const dist = Math.hypot(ev.clientX - lastPt[0], ev.clientY - lastPt[1]);
@@ -177,6 +183,7 @@
                 s.pet = clamp(s.pet + gain * 0.3, 0, 1);       // content : yeux plissés
                 const r0 = canvas.getBoundingClientRect();
                 spawnStars((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, gain);
+                petAcc('front', gain);
             }
             else if (!side && active && lastPt && bellyAt(ix, iy) && !cheekAt(ix, iy)) {
                 const dist = Math.hypot(ev.clientX - lastPt[0], ev.clientY - lastPt[1]);
@@ -184,6 +191,7 @@
                 s.pet = clamp(s.pet + gain * 0.3, 0, 1);
                 const r0 = canvas.getBoundingClientRect();
                 spawnCarrots((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, gain, 'banana');
+                petAcc('ventre', gain);
             }
             else if (!side && active && lastPt && cheekAt(ix, iy)) {
                 const dist = Math.hypot(ev.clientX - lastPt[0], ev.clientY - lastPt[1]);
@@ -191,15 +199,16 @@
                 s.pet = clamp(s.pet + gain * 0.3, 0, 1);
                 const r0 = canvas.getBoundingClientRect();
                 spawnCarrots((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, gain);
+                petAcc('joues', gain);
             }
             lastPt = [ev.clientX, ev.clientY];
         }
         canvas.addEventListener('pointerdown', (ev) => {
             if (ready) {   // un simple toucher sur le front : une explosion d'étoiles
                 const [ix, iy] = toImage(ev);
-                if (!earAt(ix, iy) && bellyAt(ix, iy)) { const r0 = canvas.getBoundingClientRect(); carrotBurst((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, 8, 9, 'banana'); s.nodV = -3; }
-                if (!earAt(ix, iy) && cheekAt(ix, iy)) { const r0 = canvas.getBoundingClientRect(); carrotBurst((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, 7, 8); s.nodV = -3; }
-                if (!earAt(ix, iy) && foreheadAt(ix, iy)) { const r0 = canvas.getBoundingClientRect(); burst((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, 12); s.nodV = -3; }
+                if (!earAt(ix, iy) && bellyAt(ix, iy)) { const r0 = canvas.getBoundingClientRect(); carrotBurst((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, 8, 9, 'banana'); s.nodV = -3; if (petCb) petCb(2, 'ventre'); }
+                if (!earAt(ix, iy) && cheekAt(ix, iy)) { const r0 = canvas.getBoundingClientRect(); carrotBurst((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, 7, 8); s.nodV = -3; if (petCb) petCb(2, 'joues'); }
+                if (!earAt(ix, iy) && foreheadAt(ix, iy)) { const r0 = canvas.getBoundingClientRect(); burst((ev.clientX - r0.left) * dpr, (ev.clientY - r0.top) * dpr, 12); s.nodV = -3; if (petCb) petCb(2, 'front'); }
             }
             pressed = true; lastPt = [ev.clientX, ev.clientY]; try { canvas.setPointerCapture(ev.pointerId); } catch (e) { /* non pris en charge */ } });
         canvas.addEventListener('pointermove', onMove);
@@ -252,7 +261,7 @@
                 e.v += acc * dt; e.a += e.v * dt;
                 e.a = clamp(e.a, -0.11, 0.11);   // amplitude limitée : l'oreille reste attachée à la tête
             });
-            // Carottes : lancées, elles retombent en tournant
+            // Gros cœurs : lancés, ils retombent en tournant
             for (const c of s.carrots) { c.age += dt; c.x += c.vx * dt; c.y += c.vy * dt; c.vy += c.g * dt; c.vx *= Math.exp(-0.5 * dt); c.rot += c.spin * dt; }
             s.carrots = s.carrots.filter(c => c.age < c.life && c.y < canvas.height + 80 * dpr);
             // Étoiles : freinées, légère chute, disparition
@@ -268,9 +277,9 @@
             s.blinkT -= dt;
             if (s.blinkT <= 0 && s.blinkPhase < 0) s.blinkPhase = 0;
             if (s.blinkPhase >= 0) {
-                s.blinkPhase += dt / 0.17;
+                s.blinkPhase += dt / 0.10;
                 s.blink = s.blinkPhase < 0.5 ? s.blinkPhase * 2 : Math.max(0, 2 - s.blinkPhase * 2);
-                if (s.blinkPhase >= 1) { s.blinkPhase = -1; s.blink = 0; s.blinkT = Math.random() < 0.2 ? 0.13 : rnd(2.2, 5.2); }
+                if (s.blinkPhase >= 1) { s.blinkPhase = -1; s.blink = 0; s.blinkT = Math.random() < 0.25 ? 0.09 : rnd(1.1, 3.0); }
             }
         }
 
@@ -374,51 +383,22 @@
                 ctx.restore();
             }
             ctx.restore();
-            // Carottes : corps orange en dégradé, quelques stries, fane verte
+            // Gros cœurs (caresses des joues et du ventre) : dégradé rose-rouge, reflet brillant, lueur
             for (const c of s.carrots) {
                 const u = c.age / c.life, al = clamp(Math.min(c.age / 0.08, 1) * (1 - Math.max(0, u - 0.7) / 0.3), 0, 1);
-                const L = c.size * 2.1, Wd = c.size * 0.82;
+                const z = c.size * 1.25;
                 ctx.save();
-                ctx.translate(c.x, c.y); ctx.rotate(c.rot); ctx.globalAlpha = al;
-                if (c.kind === 'banana') {
-                    // Banane : croissant jaune, arête claire, tige brune d'un côté, pointe sombre de l'autre
-                    const B = c.size * 2.3;
-                    const g2 = ctx.createLinearGradient(0, -B * 0.1, 0, B * 0.45);
-                    g2.addColorStop(0, '#fff176'); g2.addColorStop(0.55, '#ffd91f'); g2.addColorStop(1, '#e0a800');
-                    ctx.fillStyle = g2; ctx.shadowColor = 'rgba(255,210,40,0.5)'; ctx.shadowBlur = c.size * 0.45;
-                    ctx.beginPath();
-                    ctx.moveTo(-B * 0.5, B * 0.05);
-                    ctx.quadraticCurveTo(0, B * 0.58, B * 0.5, -B * 0.15);
-                    ctx.lineTo(B * 0.53, -B * 0.22);
-                    ctx.quadraticCurveTo(0, B * 0.27, -B * 0.5, -B * 0.12);
-                    ctx.closePath(); ctx.fill();
-                    ctx.shadowBlur = 0;
-                    ctx.strokeStyle = 'rgba(130,90,0,0.5)'; ctx.lineWidth = Math.max(1, c.size * 0.07); ctx.stroke();
-                    ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = Math.max(1, c.size * 0.09);
-                    ctx.beginPath(); ctx.moveTo(-B * 0.38, -B * 0.07); ctx.quadraticCurveTo(0, B * 0.3, B * 0.4, -B * 0.14); ctx.stroke();
-                    ctx.fillStyle = '#6b4a1a'; ctx.beginPath(); ctx.arc(-B * 0.5, B * 0.0, c.size * 0.12, 0, Math.PI * 2); ctx.fill();
-                    ctx.fillRect(B * 0.5, -B * 0.27, c.size * 0.2, c.size * 0.34);
-                    ctx.restore();
-                    continue;
-                }
-                // fane
-                ctx.fillStyle = '#4cb544';
-                [[-0.5, -0.2], [0, -0.35], [0.5, -0.2]].forEach(([dx, dy]) => {
-                    ctx.beginPath(); ctx.ellipse(dx * Wd * 0.55, -L * 0.5 - c.size * (0.35 + dy * 0.2), Wd * 0.17, c.size * 0.5, dx * 0.7, 0, Math.PI * 2); ctx.fill();
-                });
-                // corps
-                const gr = ctx.createLinearGradient(-Wd / 2, 0, Wd / 2, 0);
-                gr.addColorStop(0, '#ff9a2e'); gr.addColorStop(0.5, '#ff7a12'); gr.addColorStop(1, '#e85d00');
-                ctx.fillStyle = gr; ctx.shadowColor = 'rgba(255,120,20,0.45)'; ctx.shadowBlur = c.size * 0.4;
+                ctx.translate(c.x, c.y); ctx.rotate(c.rot * 0.25 + Math.sin(c.age * 3 + c.spin) * 0.25); ctx.globalAlpha = al;
+                const gr = ctx.createRadialGradient(-z * 0.25, -z * 0.3, z * 0.1, 0, 0, z * 1.1);
+                gr.addColorStop(0, c.col[0]); gr.addColorStop(1, c.col[1]);
+                ctx.fillStyle = gr; ctx.shadowColor = c.col[1]; ctx.shadowBlur = z * 0.5;
                 ctx.beginPath();
-                ctx.moveTo(-Wd / 2, -L / 2);
-                ctx.quadraticCurveTo(-Wd / 2, -L / 2 - c.size * 0.18, 0, -L / 2 - c.size * 0.12);
-                ctx.quadraticCurveTo(Wd / 2, -L / 2 - c.size * 0.18, Wd / 2, -L / 2);
-                ctx.quadraticCurveTo(Wd * 0.38, L * 0.1, 0, L / 2);
-                ctx.quadraticCurveTo(-Wd * 0.38, L * 0.1, -Wd / 2, -L / 2);
+                ctx.moveTo(0, z * 0.42);
+                ctx.bezierCurveTo(z * 1.05, -z * 0.15, z * 0.62, -z * 1.0, 0, -z * 0.45);
+                ctx.bezierCurveTo(-z * 0.62, -z * 1.0, -z * 1.05, -z * 0.15, 0, z * 0.42);
                 ctx.fill();
-                ctx.shadowBlur = 0; ctx.strokeStyle = 'rgba(160,60,0,0.45)'; ctx.lineWidth = Math.max(1, c.size * 0.06);
-                [-0.28, -0.02, 0.24].forEach((t, i) => { const hw = Wd * (0.36 - i * 0.1); ctx.beginPath(); ctx.moveTo(-hw, L * t); ctx.lineTo(-hw * 0.2, L * t + c.size * 0.07); ctx.stroke(); });
+                ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,0.5)';
+                ctx.beginPath(); ctx.ellipse(-z * 0.38, -z * 0.42, z * 0.17, z * 0.1, -0.6, 0, Math.PI * 2); ctx.fill();
                 ctx.restore();
             }
             // Étoiles : cinq branches, lueur dorée ; certaines sont de simples étincelles rondes
@@ -477,8 +457,7 @@
             onPet(cb) { petCb = cb; },
             _pet(side) { s.pet = 1; s.ear[side].v += 3; const ix = side === 'L' ? 230 : 730, iy = 170; for (let i = 0; i < 6; i++) { s.heartT = 0; spawnHearts(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 1); s.hearts[s.hearts.length - 1].age = i * 0.2; } },   // essais : simule une caresse
             _burst(ix, iy) { burst(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 14); },
-            _bananas(ix, iy) { carrotBurst(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 8, 10, 'banana'); },
-            _carrots(ix, iy) { carrotBurst(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 8, 10); },
+            _bigHearts(ix, iy) { carrotBurst(view.cx0 + (ix - view.cx) * view.sc, view.cy0 + (iy - view.cy) * view.sc, 8, 10); },
             _state: s,
             stop() { running = false; window.removeEventListener('resize', resize); if (ro) ro.disconnect(); }
         };

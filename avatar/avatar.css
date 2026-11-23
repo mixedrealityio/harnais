@@ -32,3 +32,9 @@ body.lapin button { text-shadow: none; }
 #profil textarea { width: 100%; box-sizing: border-box; background: #0d1018; color: var(--fg); border: 1px solid #2c3247; border-radius: 10px; padding: 10px; font: 13px/1.4 inherit; resize: vertical; }
 #profil div { display: flex; gap: 8px; justify-content: center; margin-top: 6px; }
 body.lapin #profil { position: relative; z-index: 2; }
+#memoire { width: 100%; max-width: 560px; }
+#memoire[hidden] { display: none; }
+#memoire textarea { width: 100%; box-sizing: border-box; background: #0d1018; color: var(--fg); border: 1px solid #2c3247; border-radius: 10px; padding: 10px; font: 12px/1.4 inherit; resize: vertical; }
+#memoire div { display: flex; gap: 8px; justify-content: center; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+#mem-info { font-size: 11px; color: var(--mut); }
+body.lapin #memoire { position: relative; z-index: 2; }
