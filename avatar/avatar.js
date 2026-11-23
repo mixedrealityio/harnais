@@ -141,14 +141,33 @@
     const $ = (id) => document.getElementById(id);
     const el = { dance: $('dance'), face: $('face'), status: $('status'), capUser: $('cap-user'), capBot: $('cap-bot'),
         memBtn: $('mem-btn'), memBox: $('memoire'), memText: $('mem-text'), memSave: $('mem-save'), memClear: $('mem-clear'), memInfo: $('mem-info'), profilBtn: $('profil-btn'), profilBox: $('profil'), profilText: $('profil-text'), profilSave: $('profil-save'), profilReset: $('profil-reset'), pitchUp: $('pitch-up'), pitchDown: $('pitch-down'), pitchInfo: $('pitch-info'), rec: $('rec'), micsel: $('micsel'), mic: $('mic'), meter: $('meter-bar'), head: $('head'), voiceBtn: $('voice'), diag: $('diag'), start: $('start'), mute: $('mute'), cut: $('cut'), stop: $('stop'), note: $('note') };
-    const HEADS = { lapin: window.AvatarRabbit, marie: window.AvatarFace };
-    const HEAD_LABEL = { lapin: 'Tête : lapin', marie: 'Tête : visage' };
-    let headName = (function () { try { return localStorage.getItem('avatar-tete') || 'lapin'; } catch (e) { return 'lapin'; } })();
-    if (!HEADS[headName]) headName = 'lapin';
-    let face = HEADS[headName](el.face);
+    // Têtes : lapin 3D (Three.js, chargé en module donc un peu après ce script), lapin photo 2D animé, visage dessiné
+    const HEADS = { lapin3d: (c) => (window.AvatarRabbit3D ? window.AvatarRabbit3D(c) : window.AvatarRabbit(c)), lapin: (c) => window.AvatarRabbit(c), marie: (c) => window.AvatarFace(c) };
+    const HEAD_LABEL = { lapin3d: 'Tête : lapin 3D', lapin: 'Tête : lapin photo', marie: 'Tête : visage' };
+    const HEAD_ORDER = ['lapin3d', 'lapin', 'marie'];
+    const isLapin = (n) => n === 'lapin' || n === 'lapin3d';
+    let headName = (function () { try { return localStorage.getItem('avatar-tete2') || 'lapin3d'; } catch (e) { return 'lapin3d'; } })();
+    if (!HEADS[headName]) headName = 'lapin3d';
+    let face = null, face3dPending = false;
+    function buildFace() {
+        // Sans WebGL ou sans module 3D : on retombe sur le lapin photo
+        let f = null;
+        if (headName === 'lapin3d' && window.AvatarRabbit3D) { try { f = window.AvatarRabbit3D(el.face); } catch (e) { diagLog('3D indisponible : ' + String(e && e.message || e).slice(0, 80)); f = null; } }
+        if (!f) { face3dPending = headName === 'lapin3d' && !window.AvatarRabbit3D; f = (headName === 'marie' ? window.AvatarFace : window.AvatarRabbit)(el.face); }
+        return f;
+    }
+    face = buildFace();
     attachPet(face);
-    document.body.classList.toggle('lapin', headName === 'lapin');
+    document.body.classList.toggle('lapin', isLapin(headName));
     el.head.textContent = HEAD_LABEL[headName];
+    // Le module 3D arrive après : on remplace alors le lapin photo provisoire
+    window.addEventListener('avatar3d-ready', () => {
+        if (headName === 'lapin3d' && face3dPending) {
+            face.stop(); face = buildFace(); attachPet(face);
+            if (dance.on && canMove()) face.setDance(true, DANCE_BPM, null);
+            face.setState(S.state === 'transcribing' ? 'thinking' : S.state);
+        }
+    });
     el.voiceBtn.textContent = VOICES[voiceKind].label;
     function changePitch(d) {
         pitchAdj[voiceKind] = Math.round(((pitchAdj[voiceKind] || 0) + d) * 100) / 100;
@@ -169,9 +188,9 @@
         S.bcBuffers = []; S.bcStarted = false;   // les petites réactions sont refaites avec la nouvelle voix
     });
     el.head.addEventListener('click', () => {
-        headName = headName === 'lapin' ? 'marie' : 'lapin';
-        try { localStorage.setItem('avatar-tete', headName); } catch (e) { /* stockage indisponible */ }
-        face.stop(); document.body.classList.toggle('lapin', headName === 'lapin'); face = HEADS[headName](el.face); attachPet(face); if (dance.on && canMove()) face.setDance(true, DANCE_BPM, null);
+        headName = HEAD_ORDER[(HEAD_ORDER.indexOf(headName) + 1) % HEAD_ORDER.length];
+        try { localStorage.setItem('avatar-tete2', headName); } catch (e) { /* stockage indisponible */ }
+        face.stop(); document.body.classList.toggle('lapin', isLapin(headName)); face = buildFace(); attachPet(face); if (dance.on && canMove()) face.setDance(true, DANCE_BPM, null);
         face.setState(S.state === 'transcribing' ? 'thinking' : S.state);
         el.head.textContent = HEAD_LABEL[headName];
     });

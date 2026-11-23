@@ -39,6 +39,7 @@
             { id: 15, r: 1, q: 'Une force de 20 N déplace un objet de 3 m dans sa direction. Le travail fourni ?', o: ['6,7 J', '17 J', '23 J', '60 J'], a: 3, e: 'W = F × d = 20 × 3 = 60 J.' }
         ]
     };
+    const GEN_COUNT = 1500;   // énigmes générées par catégorie
     const API = '../avatar-jeu';
     const $ = (id) => document.getElementById(id);
     const root = $('enigmes');
@@ -117,9 +118,16 @@
         let cur = null, timer = null, locked = false;
         function next() {
             clearTimeout(timer);
-            let pool = BANK[cat].filter(x => !state.vues[cat].includes(x.id));
-            if (!pool.length) { state.vues[cat] = []; pool = BANK[cat]; }
-            cur = pool[Math.floor(Math.random() * pool.length)];
+            // 15 énigmes écrites à la main + 1500 générées (chacune avec sa réponse calculée) par catégorie, sans répétition tant que possible
+            const hand = BANK[cat].length, gen = window.EnigmeGen ? GEN_COUNT : 0, total = hand + gen;
+            cur = null;
+            for (let t = 0; t < 60 && !cur; t++) {
+                const i = Math.floor(Math.random() * total);
+                const id = i < hand ? BANK[cat][i].id : 1000 + (i - hand);
+                if (state.vues[cat].includes(id)) continue;
+                cur = i < hand ? BANK[cat][i] : window.EnigmeGen.get(cat, i - hand, GEN_COUNT);
+            }
+            if (!cur) { state.vues[cat] = []; cur = BANK[cat][Math.floor(Math.random() * hand)]; }
             const order = shuffle([0, 1, 2, 3]);
             cur.order = order;
             qEl.textContent = cur.q;
@@ -141,6 +149,7 @@
             locked = true;
             state.essais++;
             state.vues[cat].push(cur.id);
+            if (state.vues[cat].length > 290) state.vues[cat].splice(0, state.vues[cat].length - 290);
             const ok = k === cur.a;
             [...oEl.children].forEach(b => { b.disabled = true; if (Number(b.dataset.k) === cur.a) b.classList.add('good'); });
             if (ok) {
@@ -178,5 +187,5 @@
     const m = Card('m'), p = Card('p');
     paintCount(0);
     load().then(() => { m.next(); p.next(); layout(); });
-    window.enigmes = { state, _right: (c) => (c === 'p' ? p : m).right() };
+    window.enigmes = { state, _right: (c) => (c === 'p' ? p : m).right(), _next: (c) => (c === 'p' ? p : m).next() };
 })();

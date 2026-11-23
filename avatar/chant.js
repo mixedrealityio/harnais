@@ -32,7 +32,29 @@
             titre: 'Ah ! vous dirai-je, maman', bpm: 96,
             sections: [
                 { texte: 'Ah ! vous dirai-je, maman,', notes: [['Ah', '', 'a', 0, 1], ['vous', 'v', 'ou', 0, 1], ['di', 'p', 'i', 7, 1], ['rai', 'l', 'E', 7, 1], ['je', 'v', 'eu', 9, 1], ['ma', 'n', 'a', 9, 1], ['man', 'n', 'an', 7, 2]] },
-                { texte: 'ce qui cause mon tourment.', notes: [['ce', 'f', 'eu', 5, 1], ['qui', 'p', 'i', 5, 1], ['cau', 'p', 'o', 4, 1], ['se', 'f', 'eu', 4, 1], ['mon', 'n', 'on', 2, 1], ['tour', 'p', 'ou', 2, 1], ['ment', 'n', 'an', 0, 2]] }
+                { texte: 'ce qui cause mon tourment.', notes: [['ce', 'f', 'eu', 5, 1], ['qui', 'p', 'i', 5, 1], ['cau', 'p', 'o', 4, 1], ['se', 'f', 'eu', 4, 1], ['mon', 'n', 'on', 2, 1], ['tour', 'p', 'ou', 2, 1], ['ment', 'n', 'an', 0, 2]] },
+                { texte: 'Papa veut que je raisonne,', notes: [['Pa', 'p', 'a', 7, 1], ['pa', 'p', 'a', 7, 1], ['veut', 'v', 'eu', 5, 1], ['que', 'p', 'eu', 5, 1], ['je', 'v', 'eu', 4, 1], ['rai', 'l', 'E', 4, 1], ['son', 'f', 'on', 2, 2]] },
+                { texte: 'comme une grande personne.', notes: [['Com', 'p', 'o', 7, 1], ['mu', 'n', 'y', 7, 1], ['ne', 'n', 'eu', 5, 1], ['gran', 'p', 'an', 5, 1], ['de', 'p', 'eu', 4, 1], ['per', 'p', 'E', 4, 1], ['son', 'f', 'on', 2, 2]] },
+                { texte: 'Moi, je dis que les bonbons', notes: [['Moi', 'n', 'o', 0, 1], ['je', 'v', 'eu', 0, 1], ['dis', 'p', 'i', 7, 1], ['que', 'p', 'eu', 7, 1], ['les', 'l', 'e', 9, 1], ['bon', 'p', 'on', 9, 1], ['bons', 'p', 'on', 7, 2]] },
+                { texte: 'valent mieux que la raison.', notes: [['Va', 'v', 'a', 5, 1], ['lent', 'l', 'an', 5, 1], ['mieux', 'n', 'eu', 4, 1], ['que', 'p', 'eu', 4, 1], ['la', 'l', 'a', 2, 1], ['rai', 'l', 'E', 2, 1], ['son', 'f', 'on', 0, 2]] }
+            ]
+        },
+        {
+            titre: 'Joyeux anniversaire', bpm: 104, tonic: 261.63,
+            sections: [
+                { texte: 'Joyeux anniversaire,', notes: [['Joy', 'v', 'a', 7, 0.75], ['eux', '', 'eu', 7, 0.25], ['an', '', 'an', 9, 1], ['ni', 'n', 'i', 7, 1], ['ver', 'v', 'E', 12, 1], ['saire', 'f', 'E', 11, 2]] },
+                { texte: 'joyeux anniversaire,', notes: [['Joy', 'v', 'a', 7, 0.75], ['eux', '', 'eu', 7, 0.25], ['an', '', 'an', 9, 1], ['ni', 'n', 'i', 7, 1], ['ver', 'v', 'E', 14, 1], ['saire', 'f', 'E', 12, 2]] },
+                { texte: 'joyeux anniversaire, mon ami,', notes: [['Joy', 'v', 'a', 7, 0.75], ['eux', '', 'eu', 7, 0.25], ['an', '', 'an', 19, 1], ['ni', 'n', 'i', 16, 1], ['ver', 'v', 'E', 12, 1], ['sai', 'f', 'E', 11, 1], ['re', 'l', 'eu', 9, 1]] },
+                { texte: 'joyeux anniversaire !', notes: [['Joy', 'v', 'a', 17, 0.75], ['eux', '', 'eu', 17, 0.25], ['an', '', 'an', 16, 1], ['ni', 'n', 'i', 12, 1], ['ver', 'v', 'E', 14, 1], ['saire', 'f', 'E', 12, 2]] }
+            ]
+        },
+        {
+            titre: 'Hymne à la joie (Beethoven)', bpm: 108, tonic: 261.63,
+            sections: [
+                { texte: 'la la la la, la la la la,', notes: [['la', 'l', 'a', 4, 1], ['la', 'l', 'a', 4, 1], ['la', 'l', 'a', 5, 1], ['la', 'l', 'a', 7, 1], ['la', 'l', 'a', 7, 1], ['la', 'l', 'a', 5, 1], ['la', 'l', 'a', 4, 1], ['la', 'l', 'a', 2, 1]] },
+                { texte: 'la la la la, la la la.', notes: [['la', 'l', 'a', 0, 1], ['la', 'l', 'a', 0, 1], ['la', 'l', 'a', 2, 1], ['la', 'l', 'a', 4, 1], ['la', 'l', 'a', 4, 1.5], ['la', 'l', 'a', 2, 0.5], ['la', 'l', 'a', 2, 2]] },
+                { texte: 'la la la la, la la la la,', notes: [['la', 'l', 'a', 4, 1], ['la', 'l', 'a', 4, 1], ['la', 'l', 'a', 5, 1], ['la', 'l', 'a', 7, 1], ['la', 'l', 'a', 7, 1], ['la', 'l', 'a', 5, 1], ['la', 'l', 'a', 4, 1], ['la', 'l', 'a', 2, 1]] },
+                { texte: 'la la la la, la la la !', notes: [['la', 'l', 'a', 0, 1], ['la', 'l', 'a', 0, 1], ['la', 'l', 'a', 2, 1], ['la', 'l', 'a', 4, 1], ['la', 'l', 'a', 2, 1.5], ['la', 'l', 'a', 0, 0.5], ['la', 'l', 'a', 0, 2]] }
             ]
         }
     ];
@@ -109,7 +131,7 @@
         const beat = 60 / song.bpm, vol = opts.volume || 0.5;
         let t = t0; const syl = [];
         for (const [txt, cons, vow, semi, beats] of song.sections[sec].notes) {
-            const dur = beats * beat * 0.92, f = TONIC * Math.pow(2, semi / 12);
+            const dur = beats * beat * 0.92, f = (song.tonic || TONIC) * Math.pow(2, semi / 12);
             syllable(c, dest, t, dur, f, cons, vow, vol);
             syl.push({ t, texte: txt, f });
             t += beats * beat;

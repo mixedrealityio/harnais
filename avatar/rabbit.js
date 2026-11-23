@@ -458,7 +458,7 @@
 
         function frame(now) {
             if (!running) return;
-            const dt = Math.min(0.05, (now - last) / 1000);
+            const dt = clamp((now - last) / 1000, 0, 0.05);
             last = now;
             update(dt);
             draw();

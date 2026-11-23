@@ -19,7 +19,7 @@ button[hidden] { display: none; }
 #diag[hidden] { display: none; }
 body.lapin #face { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; z-index: 0; }
 body.lapin #app { justify-content: flex-end; }
-body.lapin #app > *:not(#face) { position: relative; z-index: 1; text-shadow: 0 1px 6px rgba(0,0,0,.85); }
+body.lapin #app > *:not(#face):not(.face3d) { position: relative; z-index: 1; text-shadow: 0 1px 6px rgba(0,0,0,.85); }
 body.lapin button { text-shadow: none; }
 #micinfo { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--mut); max-width: 560px; width: 100%; justify-content: center; }
 #meter { width: 90px; height: 5px; background: #1b2030; border-radius: 3px; overflow: hidden; }
@@ -70,3 +70,5 @@ body:not(.lapin) #app { padding-top: var(--enigmes-h, 0px); }
 #controls button { padding: 7px 12px; font-size: 13px; }
 #controls button.primary { padding: 10px 20px; font-size: 15px; }
 #controls { gap: 6px; }
+body.lapin #app > canvas.face3d { position: fixed; inset: 0; width: 100vw; height: 100dvh; z-index: 0; pointer-events: none; text-shadow: none; }
+.face3d { display: block; }
