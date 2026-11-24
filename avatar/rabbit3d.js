@@ -104,12 +104,13 @@ function makeTextures(img, ear, aniso) {
     let backCv;
     if (ear) { backCv = document.createElement('canvas'); backCv.width = backCv.height = 8; const g = backCv.getContext('2d'); g.fillStyle = 'rgb(205,193,174)'; g.fillRect(0, 0, 8, 8); }   // dos des oreilles : pelage uni
     else {
-        // Dos du corps : la photo sans yeux ni nez (repeints à la couleur du pelage), très floue
+        // Dos du corps : la photo retournée (nette), sans yeux ni nez (repeints à la couleur du pelage)
         const c0 = document.createElement('canvas'); c0.width = W; c0.height = H;
         const g0 = c0.getContext('2d'); g0.drawImage(img, 0, 0); g0.fillStyle = FUR;
         for (const [x, y, r] of [[EYES[0][0], EYES[0][1], 70], [EYES[1][0], EYES[1][1], 70], [488, 672, 60], [488, 748, 70]]) { g0.beginPath(); g0.arc(x, y, r, 0, 6.283); g0.fill(); }
-        const sm = document.createElement('canvas'); sm.width = 20; sm.height = Math.round(20 * H / W); sm.getContext('2d').drawImage(c0, 0, 0, sm.width, sm.height);
-        backCv = opaquePadded(sm, 256, Math.round(256 * H / W));
+        const flip = document.createElement('canvas'); flip.width = 512; flip.height = Math.round(512 * H / W);
+        const fg = flip.getContext('2d'); fg.translate(flip.width, 0); fg.scale(-1, 1); fg.drawImage(c0, 0, 0, flip.width, flip.height);
+        backCv = opaquePadded(flip, 512, Math.round(512 * H / W));
     }
     const back = new THREE.CanvasTexture(backCv); back.colorSpace = THREE.SRGBColorSpace;
     return { front, alpha, back };
@@ -288,7 +289,7 @@ function Rabbit3D(overlay) {
         s.bounce = lerp(s.bounce, st === 'speaking' ? s.mOpen : 0, k(18));
         s.nodV += (-s.nod * 80 - s.nodV * 10) * dt; s.nod += s.nodV * dt;
         s.pet = Math.max(0, s.pet - dt * 0.45);
-        s.squint = lerp(s.squint, s.pet > 0.12 ? 0.6 + 0.2 * Math.sin(s.t * 6) : 0, k(9));
+        s.squint = lerp(s.squint, s.pet > 0.12 ? 0.3 : 0, k(4));   // yeux mi-clos, sans va-et-vient : les vrais clignements restent rapides par-dessus
         const want = st === 'speaking' ? 0.45 + s.mOpen * 0.6 : st === 'user' ? 0.35 : st === 'thinking' ? 0.2 : 0.25;
         s.swayEnergy = lerp(s.swayEnergy, clamp(want + s.pet * 1.1, 0, 1.6), k(2.5));
         s.swayPhase += dt * (1.55 + s.swayEnergy * 0.9 + s.pet * 3.2);
@@ -324,7 +325,7 @@ function Rabbit3D(overlay) {
         const dn = s.danceE, bt = s.beat || 0, ph = bt - Math.floor(bt), t = s.t, breath = Math.sin(t * 1.8) * 0.006;
         const hop = dn * Math.abs(Math.sin(Math.PI * bt)) * 0.45 + s.bounce * 0.05, squash = dn * 0.08 * Math.exp(-ph * 5);
         root.position.set(Math.sin(s.swayPhase + 1.2) * (0.05 + 0.07 * s.swayEnergy) + dn * Math.sin(Math.PI * bt) * 0.4, hop, 0);
-        const m8 = bt % 8, spin = dn > 0.5 && m8 < 1 ? m8 * Math.PI * 2 : 0;
+        const spin = dn * Math.sin(Math.PI * bt / 2) * 0.65;   // pas de tour complet : le dos et le profil d'une seule photo ne sont pas fiables
         // Petit mouvement de tête-corps : un léger pivot, pour que le volume vive même de face
         s.yaw = Math.sin(t * 0.45) * 0.22 + (s.state === 'user' ? 0.14 : 0) + Math.sin(s.swayPhase) * 0.05 * s.swayEnergy + spin;
         root.rotation.set(-s.nod * 0.05 + (s.state === 'thinking' ? -0.05 : 0), s.yaw, s.bodyRot + s.tilt * 0.5 + dn * Math.sin(Math.PI * bt + Math.PI / 2) * 0.12);
@@ -333,7 +334,7 @@ function Rabbit3D(overlay) {
         if (parts.earL) parts.earL.rotation.z = -s.ear.L.a;
         if (parts.earR) parts.earR.rotation.z = -s.ear.R.a;
         // Paupières : descendent sur les billes ; yeux plissés sous les caresses
-        const lid = clamp(Math.max(s.blink, s.squint) * 1.05, 0, 1);
+        const lidRaw = clamp(Math.max(s.blink, s.squint) * 1.05, 0, 1), lid = lidRaw * lidRaw * (3 - 2 * lidRaw);
         eyeLids.forEach((l) => {
             const u = l.userData; l.visible = lid > 0.04;
             if (!l.visible) { u.rim.visible = false; return; }
@@ -356,20 +357,20 @@ function Rabbit3D(overlay) {
             const u = c.age / c.life, al = clamp(Math.min(c.age / 0.08, 1) * (1 - Math.max(0, u - 0.7) / 0.3), 0, 1), z = c.size * 1.25;
             ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.rot * 0.25 + Math.sin(c.age * 3 + c.spin) * 0.25); ctx.globalAlpha = al;
             const gr = ctx.createRadialGradient(-z * 0.25, -z * 0.3, z * 0.1, 0, 0, z * 1.1); gr.addColorStop(0, c.col[0]); gr.addColorStop(1, c.col[1]);
-            ctx.fillStyle = gr; ctx.shadowColor = c.col[1]; ctx.shadowBlur = z * 0.5;
+            ctx.fillStyle = gr; ctx.shadowColor = c.col[1]; ctx.shadowBlur = s.big.length < 30 ? z * 0.5 : 0;
             ctx.beginPath(); ctx.moveTo(0, z * 0.42); ctx.bezierCurveTo(z * 1.05, -z * 0.15, z * 0.62, -z * 1.0, 0, -z * 0.45); ctx.bezierCurveTo(-z * 0.62, -z * 1.0, -z * 1.05, -z * 0.15, 0, z * 0.42); ctx.fill();
             ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.ellipse(-z * 0.38, -z * 0.42, z * 0.17, z * 0.1, -0.6, 0, Math.PI * 2); ctx.fill(); ctx.restore();
         }
         for (const q of s.stars) {
             const u = q.age / q.life, al = clamp(Math.min(q.age / 0.05, 1) * (1 - u * u), 0, 1), z = q.size * (1.15 - 0.55 * u);
-            ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.rot); ctx.globalAlpha = al; ctx.fillStyle = q.col; ctx.shadowColor = q.col; ctx.shadowBlur = z * 0.9; ctx.beginPath();
+            ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.rot); ctx.globalAlpha = al; ctx.fillStyle = q.col; ctx.shadowColor = q.col; ctx.shadowBlur = s.stars.length < 24 ? z * 0.9 : 0; ctx.beginPath();
             if (q.spark) ctx.arc(0, 0, z * 0.28, 0, Math.PI * 2);
             else { for (let i = 0; i < 10; i++) { const rr = i % 2 === 0 ? z : z * 0.42, an = -Math.PI / 2 + i * Math.PI / 5; if (i === 0) ctx.moveTo(Math.cos(an) * rr, Math.sin(an) * rr); else ctx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } ctx.closePath(); }
             ctx.fill(); ctx.restore();
         }
         for (const hh of s.hearts) {
             const u = hh.age / hh.life, al = clamp(Math.min(hh.age / 0.15, 1) * (1 - u * u), 0, 1), z = hh.size * (0.7 + 0.5 * Math.min(u * 2, 1));
-            ctx.save(); ctx.translate(hh.x, hh.y); ctx.rotate(hh.rot + Math.sin(hh.age * 3 + hh.ph) * 0.2); ctx.globalAlpha = al; ctx.fillStyle = hh.col; ctx.shadowColor = 'rgba(255,90,140,0.6)'; ctx.shadowBlur = z * 0.6;
+            ctx.save(); ctx.translate(hh.x, hh.y); ctx.rotate(hh.rot + Math.sin(hh.age * 3 + hh.ph) * 0.2); ctx.globalAlpha = al; ctx.fillStyle = hh.col; ctx.shadowColor = 'rgba(255,90,140,0.6)'; ctx.shadowBlur = s.hearts.length < 14 ? z * 0.6 : 0;
             ctx.beginPath(); ctx.moveTo(0, z * 0.38); ctx.bezierCurveTo(z * 0.95, -z * 0.15, z * 0.55, -z * 0.95, 0, -z * 0.42); ctx.bezierCurveTo(-z * 0.55, -z * 0.95, -z * 0.95, -z * 0.15, 0, z * 0.38); ctx.fill(); ctx.restore();
         }
     }
