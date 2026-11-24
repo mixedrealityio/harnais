@@ -127,7 +127,7 @@ function Rabbit3D(overlay) {
     const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100);
     const root = new THREE.Group(); scene.add(root);               // pivot aux pieds
     const pickables = [], parts = {};
-    let ready = false, zBody = null, eyeLids = [], mouthMesh = null, jawBase = 0;
+    let ready = false, zBody = null, eyeLids = [], mouthMesh = null, jawBase = 0, bodyCanvas = null;
 
     // --- Chargement de la photo découpée en trois calques, puis gonflage ---
     const SRC = { body: 'lapin_corps.png', earL: 'oreille_g.png', earR: 'oreille_d.png' };
@@ -142,6 +142,7 @@ function Rabbit3D(overlay) {
         for (const [key, ear] of [['body', false], ['earL', true], ['earR', true]]) {
             const inf = inflate(imgs[key]);
             const T = makeTextures(imgs[key], ear, aniso);
+            if (!ear) bodyCanvas = T.front.image;
             const matF = new THREE.MeshBasicMaterial({ map: T.front, alphaMap: T.alpha, vertexColors: true, alphaTest: ear ? 0.03 : 0.5, transparent: ear });
             const matB = new THREE.MeshBasicMaterial({ map: T.back, alphaMap: T.alpha, vertexColors: true, alphaTest: ear ? 0.03 : 0.5, transparent: ear });
             const f = new THREE.Mesh(inf.front, matF), b = new THREE.Mesh(inf.back, matB);
@@ -153,17 +154,34 @@ function Rabbit3D(overlay) {
             } else { root.add(g); zBody = inf.zAt; parts.body = g; f.userData.zone = b.userData.zone = 'corps'; }
             pickables.push(f, b);
         }
-        // Paupières : demi-sphères de la couleur du pelage entre les yeux, qui descendent sur les billes
-        const c1 = document.createElement('canvas'); c1.width = c1.height = 1;
-        const g1 = c1.getContext('2d', { willReadFrequently: true }); g1.drawImage(imgs.body, 480, 560, 14, 14, 0, 0, 1, 1);
-        const d = g1.getImageData(0, 0, 1, 1).data, fur = new THREE.Color(`rgb(${d[0]},${d[1]},${d[2]})`).multiplyScalar(0.97);
+        // Paupières naturelles : une « décalcomanie » de vrai pelage (copié juste sous chaque œil, donc même grain et même teinte),
+        // collée à la surface du visage, bords adoucis, avec un pli ombré et un trait de cils sur le bord. Elle descend depuis le haut de l'œil.
+        const LWpx = EYE_R * 2.8, LHpx = EYE_R * 3.1, TOP = EYE_R * 1.4;
         EYES.forEach(([ex, ey]) => {
-            const m = new THREE.Mesh(new THREE.SphereGeometry(EYE_R * S * 1.3, 24, 16), new THREE.MeshBasicMaterial({ color: fur }));
-            m.position.set(wx(ex), wy(ey), zBody(ex, ey) * S + EYE_R * S * 0.15); m.scale.set(1, 0.0001, 0.55); m.visible = false;
-            m.userData.base = { x: wx(ex), y: wy(ey) }; root.add(m); eyeLids.push(m);
-            // Trait fin de l'œil fermé (sourire de la paupière)
-            const ln = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 8), new THREE.MeshBasicMaterial({ color: 0x5b4a3b }));
-            ln.scale.set(EYE_R * S * 1.0, 0.012, 0.02); ln.position.set(wx(ex), wy(ey) - EYE_R * S * 0.1, zBody(ex, ey) * S + EYE_R * S * 0.15 + EYE_R * S * 1.3 * 0.55 + 0.012); ln.visible = false; root.add(ln); m.userData.line = ln;
+            const cw = 160, ch = 140, c = document.createElement('canvas'); c.width = cw; c.height = ch;
+            const g = c.getContext('2d');
+            g.drawImage(bodyCanvas, ex - LWpx / 2, ey + EYE_R * 1.5, LWpx, LHpx, 0, 0, cw, ch);          // pelage voisin
+            const sh = g.createLinearGradient(0, ch * 0.45, 0, ch * 0.9); sh.addColorStop(0, 'rgba(110,88,68,0)'); sh.addColorStop(1, 'rgba(110,88,68,0.32)');
+            g.fillStyle = sh; g.fillRect(0, 0, cw, ch);                                                      // pli : un peu d'ombre vers le bord
+            g.strokeStyle = 'rgba(72,54,42,0.9)'; g.lineWidth = 5; g.lineCap = 'round';
+            g.beginPath(); g.moveTo(cw * 0.13, ch * 0.78); g.quadraticCurveTo(cw * 0.5, ch * 0.93, cw * 0.87, ch * 0.78); g.stroke();      // bord de la paupière
+            g.lineWidth = 2.2; g.strokeStyle = 'rgba(72,54,42,0.55)';
+            for (let k = 0; k < 7; k++) { const t = 0.2 + k * 0.1, x = cw * t, y = ch * (0.78 + 0.15 * 4 * t * (1 - t) * 0.9); g.beginPath(); g.moveTo(x, y); g.lineTo(x + (t - 0.5) * 6, y + 7); g.stroke(); }   // quelques cils
+            const ac = document.createElement('canvas'); ac.width = cw; ac.height = ch;
+            const ag = ac.getContext('2d'); ag.fillStyle = '#000'; ag.fillRect(0, 0, cw, ch);
+            ag.shadowColor = '#fff'; ag.shadowBlur = 14; ag.fillStyle = '#fff'; ag.beginPath(); ag.ellipse(cw / 2, ch * 0.5, cw * 0.38, ch * 0.4, 0, 0, 6.283); ag.fill();
+            const map = new THREE.CanvasTexture(c); map.colorSpace = THREE.SRGBColorSpace; const alpha = new THREE.CanvasTexture(ac);
+            const wW = LWpx * S, hW = LHpx * S, pyTop = ey - TOP;
+            const geo = new THREE.PlaneGeometry(wW, hW, 12, 10); geo.translate(0, -hW / 2, 0);
+            const z0 = zBody(ex, pyTop) * S, pos = geo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {   // chaque sommet épouse la surface du visage
+                const px = ex + pos.getX(i) / S, py = pyTop - pos.getY(i) / S;
+                pos.setZ(i, Math.max(zBody(px, py) * S - z0, -0.25) + 0.022);
+            }
+            geo.computeBoundingSphere();
+            const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map, alphaMap: alpha, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+            m.position.set(wx(ex), wy(pyTop), z0); m.scale.y = 0.0001; m.visible = false; m.renderOrder = 5;
+            root.add(m); eyeLids.push(m);
         });
         // Bouche : visible seulement quand il parle
         mouthMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), new THREE.MeshBasicMaterial({ color: 0x3a1418 }));
@@ -323,7 +341,7 @@ function Rabbit3D(overlay) {
         if (parts.earR) parts.earR.rotation.z = -s.ear.R.a;
         // Paupières : descendent sur les billes ; yeux plissés sous les caresses
         const lid = clamp(Math.max(s.blink, s.squint) * 1.05, 0, 1);
-        eyeLids.forEach((l) => { l.visible = lid > 0.04; l.userData.line.visible = lid > 0.7; if (l.visible) { l.scale.y = Math.max(0.0001, lid); l.position.y = l.userData.base.y + EYE_R * S * 1.25 * (1 - lid) * 0.9; } });
+        eyeLids.forEach((l) => { l.visible = lid > 0.06; if (l.visible) l.scale.y = lid; });
         // Bouche
         const o = s.mOpen;
         if (mouthMesh) { mouthMesh.visible = o > 0.08; if (mouthMesh.visible) { mouthMesh.scale.set((0.1 + 0.07 * s.mouthWide + 0.03 * o) * 0.9, 0.03 + 0.17 * o, 0.04); mouthMesh.position.y = jawBase - o * 0.05; } }
