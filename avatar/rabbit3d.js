@@ -22,7 +22,7 @@ const MODEL_H = 5.4, S = MODEL_H / (BOX[3] - BOX[1]);   // pixels de la photo �
 const CX = (BOX[0] + BOX[2]) / 2;
 const wx = (px) => (px - CX) * S, wy = (py) => (BOX[3] - py) * S;
 // Relief : épaisseur (px) = K × (distance au bord)^EXP. La tête atteint ≈ 250 px de profondeur, les bras restent minces.
-const DEPTH_K = 6.4, DEPTH_EXP = 0.65, STEP = 4;
+const DEPTH_T = 0.9, STEP = 4;                       // épaisseur = 90 % de la largeur du tronçon (un peu aplati, comme une peluche)
 const inEllipse = (px, py, e) => ((px - e.x) / e.rx) ** 2 + ((py - e.y) / e.ry) ** 2 <= 1;
 
 // Gonfle une image découpée : renvoie les deux demi-coques (face, dos) et une fonction donnant l'épaisseur en un point
@@ -40,13 +40,44 @@ function inflate(img) {
     const at = (i, j) => (i < 0 || j < 0 || i >= gw || j >= gh ? 0 : d[j * gw + i]);
     for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) { const k = j * gw + i; if (!inside[k]) continue; d[k] = Math.min(d[k], at(i - 1, j) + 1, at(i, j - 1) + 1, at(i - 1, j - 1) + 1.414, at(i + 1, j - 1) + 1.414); }
     for (let j = gh - 1; j >= 0; j--) for (let i = gw - 1; i >= 0; i--) { const k = j * gw + i; if (!inside[k]) continue; d[k] = Math.min(d[k], at(i + 1, j) + 1, at(i, j + 1) + 1, at(i + 1, j + 1) + 1.414, at(i - 1, j + 1) + 1.414); }
+    // Relief « cylindrique » : sur chaque ligne, chaque tronçon du lapin est une coupe circulaire (un cylindre pour le corps,
+    // une sphère pour la tête), de profondeur nulle aux deux extrémités du tronçon ; un facteur vertical referme le haut et le bas.
+    const zc = new Float32Array(gw * gh);
+    for (let j = 0; j < gh; j++) {
+        let i = 0;
+        while (i < gw) {
+            if (!inside[j * gw + i]) { i++; continue; }
+            let i1 = i; while (i1 + 1 < gw && inside[j * gw + i1 + 1]) i1++;
+            const R = Math.max(0.5, (i1 - i) / 2), xc = (i + i1) / 2;
+            for (let q = i; q <= i1; q++) { const dx = q - xc; zc[j * gw + q] = DEPTH_T * Math.sqrt(Math.max(0, R * R - dx * dx)) * STEP; }
+            i = i1 + 1;
+        }
+    }
+    // Lissage vertical (2 passes) : les profondeurs de lignes voisines se rejoignent sans marches d'escalier
+    for (let pass = 0; pass < 3; pass++) {
+        const src = zc.slice();
+        for (let j = 1; j < gh - 1; j++) for (let i = 0; i < gw; i++) {
+            const k = j * gw + i;
+            if (inside[k] && inside[k - gw] && inside[k + gw]) zc[k] = (src[k - gw] + 2 * src[k] + src[k + gw]) / 4;
+        }
+    }
+    const vf = new Float32Array(gw * gh).fill(1);
+    for (let i = 0; i < gw; i++) {
+        let j = 0;
+        while (j < gh) {
+            if (!inside[j * gw + i]) { j++; continue; }
+            let j1 = j; while (j1 + 1 < gh && inside[(j1 + 1) * gw + i]) j1++;
+            for (let q = j; q <= j1; q++) { const dv = Math.min(q - j, j1 - q) * STEP; vf[q * gw + i] = Math.min(1, Math.sqrt(dv / 90)); }
+            j = j1 + 1;
+        }
+    }
     // Sommets : les cases du lapin et leur voisinage (pour que le bord de la texture soit couvert)
     const idx = new Int32Array(gw * gh).fill(-1), pos = [], uv = [], zpx = [];
     for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
         let near = inside[j * gw + i];
         for (let dj = -1; dj <= 1 && !near; dj++) for (let di = -1; di <= 1 && !near; di++) { const ii = i + di, jj = j + dj; if (ii >= 0 && jj >= 0 && ii < gw && jj < gh && inside[jj * gw + ii]) near = 1; }
         if (!near) continue;
-        const px = i * STEP, py = j * STEP, dd = d[j * gw + i], z = inside[j * gw + i] && dd > 1 ? DEPTH_K * Math.pow((dd - 1) * STEP, DEPTH_EXP) : 0;   // épaisseur nulle sur la couronne du bord : les deux coques se rejoignent sans fente
+        const px = i * STEP, py = j * STEP, dd = d[j * gw + i], z = inside[j * gw + i] && dd > 1 ? zc[j * gw + i] * vf[j * gw + i] : 0;   // épaisseur nulle sur la couronne du bord : les deux coques se rejoignent sans fente
         idx[j * gw + i] = pos.length / 3; pos.push(wx(px), wy(py), z * S); uv.push(px / W, 1 - py / H); zpx.push(z);
     }
     const tri = [];
